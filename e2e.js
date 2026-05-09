@@ -8,7 +8,7 @@
 //   5. commitManual — clean(差なし)/ dirty(HEAD 編集後)の挙動
 //   6. history — versions が正しく返る
 //   7. show / diff — version 取得と text diff
-//   8. notes / apply / rollback — mutable notes、applyId group、append-only rollback
+//   8. notes / apply / rollback — mutable notes、folder search、applyId group、append-only rollback
 //   9. folder apply — 複数 file 横断 apply 検索
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
@@ -22,7 +22,7 @@ import {
   atomicWrite, acquireLock, commitManual, history, validateBlock,
   show, diff, rollback,
   refs as readRefs, tags as readTags,
-  noteAdd, noteEdit, noteRm, noteList, applyList, applyShow, applyIndex, applySearch,
+  noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
 } from './runtimes/ver001.handle.yume.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -305,6 +305,10 @@ const searchedGroup = await applySearch(tmpDir, 'apply-test-001');
 assert(searchedGroup.fileCount === 2, 'applySearch returns cross-file apply group');
 assert(searchedGroup.files.some((file) => file.relativeFile === 'hello.fn.yume.js'), 'applySearch includes first file');
 assert(searchedGroup.files.some((file) => file.relativeFile === 'hello2.fn.yume.js'), 'applySearch includes second file');
+const noteHits = await notesSearch(tmpDir, 'changed second file');
+assert(noteHits.length === 1, 'notesSearch finds matching note text');
+assert(noteHits[0].relativeFile === 'hello2.fn.yume.js', 'notesSearch reports relative file');
+assert(noteHits[0].blockId === 'hello2', 'notesSearch reports block id');
 
 // ============================================================
 // cleanup

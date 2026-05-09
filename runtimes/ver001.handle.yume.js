@@ -12,7 +12,7 @@
 //   - validateBlock(hash chain / schema sanity)
 //   - commitManual(boundary case、AI 不在の人手編集救済)
 //   - history / show / diff / rollback
-//   - notes API(noteAdd / noteEdit / noteRm / noteList)
+//   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
 //   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @tags:)
 //   - cli(verb dispatcher)
@@ -592,6 +592,33 @@ export async function noteList(fileUrl, target = null) {
   );
 }
 
+export async function notesSearch(folder, query) {
+  const root = toPath(folder);
+  if (typeof query !== 'string' || query.length === 0) throw new TypeError('notesSearch: query must be a non-empty string');
+  const needle = query.toLowerCase();
+  const files = await listYumeFiles(root);
+  const results = [];
+
+  for (const file of files) {
+    const parsed = await readYumeFileOrNull(file);
+    if (!parsed) continue;
+    for (const [key, notes] of Object.entries(parsed.block.notes ?? {})) {
+      for (const note of notes) {
+        if (!note.text.toLowerCase().includes(needle)) continue;
+        results.push({
+          file,
+          relativeFile: relative(root, file),
+          blockId: parsed.block.id,
+          key,
+          ...note,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
 // ============================================================
 // refs / tags — latest version metadata
 // ============================================================
@@ -1091,6 +1118,17 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
+    case 'notes-search': {
+      const folder = argv[3];
+      const query = argv.slice(4).join(' ');
+      if (!folder || !query) return usage('notes-search <folder> <query>');
+      const notes = await notesSearch(folder, query);
+      for (const note of notes) {
+        const kind = note.kind ?? '-';
+        console.log(`${note.relativeFile}  ${note.key}  ${note.id}  ${new Date(note.ts).toISOString()}  ${note.author}  ${kind}  ${note.text}`);
+      }
+      return;
+    }
     case 'refs': {
       for (const ref of await refs(fileUrl)) {
         console.log(`${ref.kind}  ${ref.target}`);
@@ -1162,7 +1200,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }

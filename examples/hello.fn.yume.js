@@ -9,7 +9,7 @@ export const __block = {
     "name": "yume",
     "version": "001"
   },
-  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "notesSearch", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     {
       "hash": "4b6f0d194c32fd00abec668b757f95008eccdb64dddb40c4d82af5261a9f9b21",

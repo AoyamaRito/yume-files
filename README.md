@@ -39,7 +39,7 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 - `HEAD` region には現在の実コードを置きます。
 - `BOOT` region から co-located runtime を呼び出せます。
 - runtime version を file 側で pin するため、古い file は古い runtime のまま動かせます。
-- v001 runtime は `commit` / `history` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `note-*` / `apply-*` を提供します。
+- v001 runtime は `commit` / `history` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `note-*` / `notes-search` / `apply-*` を提供します。
 - `notes` は変更理由や意図を書く mutable layer です。version hash には含めません。
 - `applyId` は一連の操作で生まれた version を束ねる ID です。apply 全体にも note を付けられます。
 - folder を走査して、複数ファイルにまたがる apply group を検索できます。
@@ -121,6 +121,12 @@ note を表示:
 node examples/hello.fn.yume.js note-list
 ```
 
+folder 内の note を検索:
+
+```sh
+node examples/hello.fn.yume.js notes-search . "why"
+```
+
 apply group を表示:
 
 ```sh
@@ -160,6 +166,7 @@ yume-files/
 - 書き込みは tmp file + fsync + rename で行います。
 - lock file は atomic create + token ownership で扱います。
 - commentary は `notes` layer に分離し、version hash には含めません。
+- `notes-search` は folder 内の `.yume.js` を走査し、意図メモを横断検索します。
 - apply 全体の commentary は `__block.notes["apply:<applyId>"]` に保存します。
 - cross-file apply は永続 index を作らず、現時点では folder scan で解決します。
 
@@ -225,7 +232,7 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - The `HEAD` region contains the current source code.
 - The optional `BOOT` region can invoke a co-located runtime.
 - Runtime versions are pinned per file, so older files can keep using older runtimes.
-- The v001 runtime currently supports `commit`, `history`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `note-*`, and `apply-*`.
+- The v001 runtime currently supports `commit`, `history`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `note-*`, `notes-search`, and `apply-*`.
 - `notes` is a mutable commentary layer for intent and reasoning. It is not included in version hashes.
 - `applyId` groups versions produced by the same operation. Notes can also be attached to an apply group.
 - Folder scans can find apply groups that span multiple files.
@@ -307,6 +314,12 @@ List notes:
 node examples/hello.fn.yume.js note-list
 ```
 
+Search notes across a folder:
+
+```sh
+node examples/hello.fn.yume.js notes-search . "why"
+```
+
 Show apply groups:
 
 ```sh
@@ -346,6 +359,7 @@ yume-files/
 - Writes use tmp file + fsync + rename.
 - Lock files use atomic create + token ownership.
 - Commentary lives in a separate `notes` layer and stays out of version hashes.
+- `notes-search` scans `.yume.js` files in a folder and searches intent notes across files.
 - Apply-level commentary is stored under `__block.notes["apply:<applyId>"]`.
 - Cross-file apply lookup currently uses folder scanning instead of a persistent index.
 
