@@ -144,12 +144,18 @@ yume-files/
 
 Git は repository 全体の snapshot 管理に強い道具です。`.yume.js` はそれを置き換えるものではありません。
 
+ただし、AI が作業中に過去の経緯を参照する用途では、Git は粒度と操作のオーバーヘッドが大きくなりがちです。AI が `git log`、`git show`、diff、commit message をたどって「この関数がなぜ今こうなっているか」を復元するには、repository 全体の文脈から必要な断片を探す必要があります。
+
 `.yume.js` が担当するのは、もっと小さい粒度です。
 
 - file / function 単位の履歴
 - AI が触った作業単位
 - あとから直せる意図メモ
 - runtime version 付きの可搬な実行単位
+
+`.yume.js` では、AI が1つの Block file を開くだけで、現在の `HEAD`、過去の `versions[]`、意図を書いた `notes`、複数ファイル操作を束ねる `applyId` を同じ場所で読めます。これは、AI が履歴を「外部の巨大な repo 履歴」ではなく「いま編集している Block の局所文脈」として扱える、という意味があります。
+
+この局所性が重要です。AI は必要な履歴を Block 単位で自由に読み、必要なら apply group を folder scan で追えます。Git のように repo 全体の checkpoint を復元するのではなく、作業対象そのものに過去の変化と理由が同居しているため、AI の探索コストが下がります。
 
 Git と併用する前提です。Git は repo の checkpoint、`.yume.js` は file 内の event log です。
 
@@ -301,12 +307,18 @@ yume-files/
 
 Git is excellent at repository-level snapshots. `.yume.js` does not replace Git.
 
+However, Git can be too coarse and too expensive as a context source while an AI is actively working. To understand why one function looks the way it does, the AI often has to inspect repository-level history, diffs, and commit messages, then reconstruct the relevant local story from a much larger timeline.
+
 `.yume.js` focuses on a smaller unit:
 
 - file / function-level history
 - AI operation grouping
 - mutable intent notes
 - portable runtime-pinned execution units
+
+With `.yume.js`, an AI can open one Block file and read the current `HEAD`, previous `versions[]`, mutable `notes`, and related `applyId` context in the same place. The history is not only in an external repository log; it is colocated with the object being edited.
+
+That locality matters. The AI can inspect history at Block granularity and follow cross-file apply groups only when needed. Instead of reconstructing intent from the entire repository timeline, it can start from the local history and reasoning attached to the current Block.
 
 The intended use is together with Git: Git is the repository checkpoint, while `.yume.js` is the event log inside the file.
 
