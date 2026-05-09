@@ -10,7 +10,7 @@
 //   7. show / diff — version 取得と text diff
 //   8. notes / apply / rollback — mutable notes、folder search、applyId group、append-only rollback
 //   9. folder apply — 複数 file 横断 apply 検索
-//   10. heavy / heavyApply — codec round-trip と multi-file applyId
+//   10. heavy / heavyApply / impact — codec round-trip、multi-file applyId、reverse refs
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
-  heavy, heavyApply,
+  heavy, heavyApply, impact,
   show, diff, rollback,
   refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
@@ -41,6 +41,25 @@ function assert(cond, label) {
 }
 
 function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+async function writeFixture(file, { id, type, content, ts }) {
+  const p = parseBlock(await readFile(HELLO_SRC, 'utf8'));
+  const extracted = extractRefsAndTags(content);
+  p.block.id = id;
+  p.block.type = type;
+  p.block.versions = [{
+    hash: hashContent(content, null, ts),
+    prevHash: null,
+    content,
+    ts,
+    refs: extracted.refs,
+    tags: extracted.tags,
+    applyId: null,
+  }];
+  p.head = content;
+  p.boot = p.boot.replace('../runtimes/ver', './runtimes/ver');
+  await atomicWrite(file, serializeBlock(p));
+}
 
 // ============================================================
 // 0. project invariants
@@ -191,6 +210,15 @@ assert(extractedSourceBoundaries.refs.some((ref) => ref.kind === 'import' && ref
 assert(extractedSourceBoundaries.refs.some((ref) => ref.kind === 'dynamic-import' && ref.target === './real-dynamic.js'), 'extractRefsAndTags keeps real dynamic import refs after string masking');
 assert(extractedSourceBoundaries.tags.includes('real-tag'), 'extractRefsAndTags keeps real comment tags');
 assert(extractedSourceBoundaries.refs.some((ref) => ref.target === 'realBoundaryCall'), 'extractRefsAndTags keeps real boundary calls');
+
+const extractedExplicitRefs = extractRefsAndTags([
+  '// @ref: ./novel.world.yume.js',
+  '// @ref: uses character-profile',
+  'const quotedRef = "// @ref: ./not-real.yume.js";',
+].join('\n'));
+assert(extractedExplicitRefs.refs.some((ref) => ref.kind === 'ref' && ref.target === './novel.world.yume.js'), 'extractRefsAndTags detects explicit @ref path refs');
+assert(extractedExplicitRefs.refs.some((ref) => ref.kind === 'uses' && ref.target === 'character-profile'), 'extractRefsAndTags detects explicit @ref typed refs');
+assert(!extractedExplicitRefs.refs.some((ref) => ref.target === './not-real.yume.js'), 'extractRefsAndTags ignores explicit @ref inside strings');
 
 // ============================================================
 // 4. atomicWrite + acquireLock(tmp folder で実行)
@@ -380,9 +408,9 @@ assert(noteHits[0].relativeFile === 'hello2.fn.yume.js', 'notesSearch reports re
 assert(noteHits[0].blockId === 'hello2', 'notesSearch reports block id');
 
 // ============================================================
-// 10. heavy / heavyApply
+// 10. heavy / heavyApply / impact
 // ============================================================
-console.log('\n[10] heavy / heavyApply');
+console.log('\n[10] heavy / heavyApply / impact');
 const formatFile = join(tmpDir, 'format.fn.yume.js');
 {
   const s = await readFile(HELLO_SRC, 'utf8');
@@ -430,6 +458,41 @@ assert(codecGroup.notes.length === 1 && codecGroup.notes[0].text === 'codec roun
 const heavyViewAfter = await heavy([tmpFile, tmpFile2, formatFile], 'hello', 1);
 const noopApply = await heavyApply([tmpFile, tmpFile2, formatFile], 'hello', heavyViewAfter, 1);
 assert(noopApply.updated.length === 0 && noopApply.applyId === null, 'heavyApply is no-op when view is unchanged');
+
+const worldFile = join(tmpDir, 'novel.world.yume.js');
+const chapterOneFile = join(tmpDir, 'chapter-one.draft.yume.js');
+const chapterTwoFile = join(tmpDir, 'chapter-two.draft.yume.js');
+await writeFixture(worldFile, {
+  id: 'novelWorld',
+  type: 'world',
+  content: `export const world = { name: "Aster" };
+`,
+  ts: 1714000002000,
+});
+await writeFixture(chapterOneFile, {
+  id: 'chapterOne',
+  type: 'draft',
+  content: `// @ref: uses ./novel.world.yume.js
+export const chapterOne = "opening";
+`,
+  ts: 1714000003000,
+});
+await writeFixture(chapterTwoFile, {
+  id: 'chapterTwo',
+  type: 'draft',
+  content: `// @ref: novelWorld
+export const chapterTwo = "turn";
+`,
+  ts: 1714000004000,
+});
+
+const impactedWorld = await impact([worldFile, chapterOneFile, chapterTwoFile], 'novelWorld', 1);
+assert(impactedWorld.length === 2, 'impact() finds direct reverse refs');
+assert(impactedWorld.some((item) => item.relativeFile === 'chapter-one.draft.yume.js' && item.via.kind === 'uses'), 'impact() reports explicit path ref kind');
+assert(impactedWorld.some((item) => item.relativeFile === 'chapter-two.draft.yume.js' && item.via.kind === 'ref'), 'impact() reports explicit id ref kind');
+
+const explicitHeavyView = await heavy([worldFile, chapterOneFile, chapterTwoFile], 'chapterOne', 1);
+assert(explicitHeavyView.includes('"file":"novel.world.yume.js"'), 'heavy() follows explicit @ref path refs');
 
 // ============================================================
 // cleanup

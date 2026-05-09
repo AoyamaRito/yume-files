@@ -15,11 +15,12 @@
 //   - history / show / diff / rollback
 //   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
-//   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @tags:)
+//   - impact(reverse refs closure)
+//   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @ref: / // @tags:)
 //   - cli(verb dispatcher)
 //
 // 未実装(後続 phase):
-//   - impact
+//   - richer ref kinds / deeper scanner fixtures
 //
 // spec: ../BLOCKFILE.aiDoc.yume.js
 
@@ -215,6 +216,7 @@ function extractRefs(content) {
   collectModuleRefs(refs, sourceView, /\bexport\s+[^'";]*?\s+from\s*["']([^"']+)["']/g, 'export');
   collectModuleRefs(refs, sourceView, /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g, 'dynamic-import');
   collectCallRefs(refs, sourceView.callSource);
+  collectExplicitRefs(refs, sourceView.lineCommentSource);
 
   return uniqueRefs(refs);
 }
@@ -244,6 +246,22 @@ function collectCallRefs(refs, source) {
 
     refs.push({ kind: 'calls', target: name });
   }
+}
+
+function collectExplicitRefs(refs, source) {
+  const pattern = /\/\/\s*@ref:\s*(.+)$/gm;
+  for (const match of source.matchAll(pattern)) {
+    const parsed = parseExplicitRef(match[1]);
+    if (parsed) refs.push(parsed);
+  }
+}
+
+function parseExplicitRef(value) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const parts = raw.split(/\s+/);
+  if (parts.length === 1) return { kind: 'ref', target: parts[0] };
+  return { kind: parts[0], target: parts.slice(1).join(' ') };
 }
 
 function extractTags(content) {
@@ -764,6 +782,22 @@ export async function tags(fileUrl) {
 }
 
 // ============================================================
+// impact — reverse refs closure(what changes if root changes?)
+// ============================================================
+export async function impact(fileUrls, rootId, depth = 1) {
+  const entries = await loadYumeEntries(fileUrls);
+  const selected = selectImpactEntries(entries, rootId, normalizeDepth(depth));
+  return selected.map(({ entry, distance, via }) => ({
+    file: entry.file,
+    relativeFile: entry.relativeFile,
+    blockId: entry.block.id,
+    type: entry.block.type,
+    distance,
+    via,
+  }));
+}
+
+// ============================================================
 // codec — heavy/decompress and heavyApply/recompress
 // ============================================================
 export async function heavy(fileUrls, rootId = '*', depth = 1) {
@@ -915,12 +949,51 @@ function selectHeavyEntries(entries, rootId, depth) {
 
     if (distance >= depth) continue;
     for (const ref of latestRefs(entry)) {
-      const next = resolveHeavyRef(entry, ref, byFile, byBlockId);
+      const next = resolveEntryRef(entry, ref, byFile, byBlockId);
       if (next && !seen.has(next.file)) queue.push({ entry: next, distance: distance + 1 });
     }
   }
 
   return selected;
+}
+
+function selectImpactEntries(entries, rootId, depth) {
+  const root = findHeavyEntry(entries, String(rootId ?? ''));
+  if (!root) throw new Error(`impact: root not found: ${rootId}`);
+
+  const byFile = new Map(entries.map((entry) => [entry.file, entry]));
+  const byBlockId = new Map(entries.map((entry) => [entry.block.id, entry]));
+  const reverseRefs = buildReverseRefs(entries, byFile, byBlockId);
+  const selected = [];
+  const seen = new Set([root.file]);
+  const queue = [{ entry: root, distance: 0 }];
+
+  while (queue.length > 0) {
+    const { entry, distance } = queue.shift();
+    if (distance >= depth) continue;
+
+    for (const edge of reverseRefs.get(entry.file) ?? []) {
+      if (seen.has(edge.entry.file)) continue;
+      seen.add(edge.entry.file);
+      const next = { entry: edge.entry, distance: distance + 1, via: edge.ref };
+      selected.push(next);
+      queue.push(next);
+    }
+  }
+
+  return selected;
+}
+
+function buildReverseRefs(entries, byFile, byBlockId) {
+  const reverseRefs = new Map(entries.map((entry) => [entry.file, []]));
+  for (const entry of entries) {
+    for (const ref of latestRefs(entry)) {
+      const target = resolveEntryRef(entry, ref, byFile, byBlockId);
+      if (!target) continue;
+      reverseRefs.get(target.file).push({ entry, ref });
+    }
+  }
+  return reverseRefs;
 }
 
 function findHeavyEntry(entries, rootId) {
@@ -953,17 +1026,24 @@ function latestRefs(entry) {
   return latestVersion(entry)?.refs ?? [];
 }
 
-function resolveHeavyRef(entry, ref, byFile, byBlockId) {
+function resolveEntryRef(entry, ref, byFile, byBlockId) {
   if (!ref || typeof ref.target !== 'string') return null;
   const byId = byBlockId.get(ref.target);
   if (byId) return byId;
 
-  if (ref.kind === 'import' || ref.kind === 'export' || ref.kind === 'dynamic-import') {
+  if (looksLikePathRef(ref.target)) {
     const targetFile = resolve(dirname(entry.file), ref.target);
     return byFile.get(targetFile) ?? null;
   }
 
   return null;
+}
+
+function looksLikePathRef(target) {
+  return target.startsWith('./') ||
+    target.startsWith('../') ||
+    target.startsWith('/') ||
+    target.endsWith('.yume.js');
 }
 
 function serializeHeavyView(entries, rootId, depth) {
@@ -1583,6 +1663,17 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
+    case 'impact': {
+      const rootId = argv[3] ?? block.id;
+      const depth = parseDepthArg(argv[4], 1);
+      const inputs = positionalArgs(argv, 5);
+      const files = inputs.length > 0 ? await expandFileInputs(inputs) : [fileUrl];
+      for (const item of await impact(files, rootId, depth)) {
+        const via = item.via ? `${item.via.kind}:${item.via.target}` : '-';
+        console.log(`${item.relativeFile}  block=${item.blockId}  distance=${item.distance}  via=${via}`);
+      }
+      return;
+    }
     case 'apply-list': {
       const groups = await applyList(fileUrl);
       for (const group of groups) {
@@ -1642,7 +1733,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, impact, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }
