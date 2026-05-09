@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>yume-files | .yume.js foundation file format</title>
+  <meta name="description" content=".yume.js is a foundation file format for AI work: history, refs, notes, impact, and runtime pinning in one portable JavaScript file.">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f8f5ed;
+      --paper-2: #eee7da;
+      --ink: #171511;
+      --muted: #676056;
+      --line: #d7ccba;
+      --teal: #126b64;
+      --blue: #234f70;
+      --rust: #9a4a2f;
+      --gold: #b17b1b;
+      --dark: #121719;
+      --dark-2: #1d2528;
+      --white: #fffdf8;
+      --shadow: 0 18px 44px rgba(23, 21, 17, 0.12);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.65;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration-color: rgba(18, 107, 100, 0.45);
+      text-underline-offset: 4px;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 64px;
+      padding: 0 32px;
+      border-bottom: 1px solid rgba(215, 204, 186, 0.9);
+      background: rgba(248, 245, 237, 0.94);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      color: var(--teal);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .topbar nav {
+      display: flex;
+      gap: 18px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .topbar nav a {
+      text-decoration: none;
+    }
+
+    .topbar nav a:hover {
+      color: var(--ink);
+    }
+
+    .hero {
+      position: relative;
+      min-height: 82vh;
+      overflow: hidden;
+      display: grid;
+      align-items: center;
+      padding: 76px 32px 84px;
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .artifact-field {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .artifact-field pre,
+    .artifact-field .node {
+      position: absolute;
+      margin: 0;
+      border: 1px solid rgba(23, 21, 17, 0.1);
+      background: rgba(255, 253, 248, 0.72);
+      box-shadow: var(--shadow);
+      color: rgba(23, 21, 17, 0.78);
+    }
+
+    .artifact-field pre {
+      width: 470px;
+      min-height: 250px;
+      padding: 22px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .artifact-field .code-a {
+      right: 5%;
+      top: 10%;
+      transform: rotate(2deg);
+    }
+
+    .artifact-field .code-b {
+      left: 4%;
+      bottom: 9%;
+      transform: rotate(-2deg);
+    }
+
+    .artifact-field .node {
+      display: grid;
+      place-items: center;
+      width: 168px;
+      height: 58px;
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
+    .artifact-field .world {
+      right: 34%;
+      top: 20%;
+      color: var(--teal);
+    }
+
+    .artifact-field .chapter {
+      right: 20%;
+      top: 42%;
+      color: var(--rust);
+    }
+
+    .artifact-field .style {
+      right: 42%;
+      top: 53%;
+      color: var(--blue);
+    }
+
+    .hero-copy {
+      position: relative;
+      z-index: 2;
+      width: min(980px, 100%);
+      margin: 0 auto;
+      padding: 36px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: var(--teal);
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 0.88rem;
+    }
+
+    h1 {
+      max-width: 860px;
+      margin: 0;
+      font-size: 5rem;
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero-copy .lead {
+      max-width: 720px;
+      margin: 28px 0 0;
+      color: #352f28;
+      font-size: 1.25rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--white);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .button.secondary {
+      background: rgba(255, 253, 248, 0.76);
+      color: var(--ink);
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .section {
+      padding: 92px 32px;
+    }
+
+    .section.dark {
+      background: var(--dark);
+      color: var(--white);
+    }
+
+    .section.band {
+      background: var(--paper-2);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .wrap {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .narrow {
+      width: min(820px, 100%);
+      margin: 0 auto;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 2.65rem;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      font-size: 1.22rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .section-lead {
+      max-width: 760px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .dark .section-lead {
+      color: #bcc5c1;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 38px;
+      align-items: start;
+    }
+
+    .proof-grid,
+    .feature-grid,
+    .use-grid,
+    .command-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 38px;
+    }
+
+    .feature-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .command-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+      min-height: 168px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .dark .card {
+      border-color: rgba(255, 253, 248, 0.18);
+      background: var(--dark-2);
+    }
+
+    .card p,
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .dark .card p,
+    .dark .feature p {
+      color: #c5cdc9;
+    }
+
+    .metric {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 2.6rem;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--teal);
+    }
+
+    .dark .metric {
+      color: #73c8bc;
+    }
+
+    .diagram {
+      margin-top: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      overflow: hidden;
+    }
+
+    .diagram-row {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr 80px 1fr;
+      align-items: stretch;
+      min-height: 170px;
+    }
+
+    .diagram-cell {
+      display: grid;
+      align-content: center;
+      gap: 8px;
+      padding: 22px;
+      border-right: 1px solid var(--line);
+    }
+
+    .diagram-cell:last-child {
+      border-right: 0;
+    }
+
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: var(--rust);
+      font-size: 2rem;
+      font-weight: 900;
+      background: #f2eadc;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .code-panel {
+      display: grid;
+      min-height: 100%;
+      border: 1px solid rgba(255, 253, 248, 0.16);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0f1417;
+      color: #e6eee9;
+      box-shadow: var(--shadow);
+    }
+
+    .code-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 253, 248, 0.14);
+      color: #9db0a9;
+      font-size: 0.82rem;
+    }
+
+    .code-panel pre {
+      margin: 0;
+      padding: 20px;
+      overflow: auto;
+      font-size: 0.87rem;
+      line-height: 1.55;
+    }
+
+    .code-panel .accent {
+      color: #7cd0c4;
+    }
+
+    .story-map {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      margin-top: 38px;
+      align-items: stretch;
+    }
+
+    .map-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .map-item {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 18px;
+      align-items: center;
+      min-height: 70px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .map-item strong {
+      color: var(--blue);
+    }
+
+    .map-item span {
+      color: var(--muted);
+    }
+
+    .impact-box {
+      display: grid;
+      align-content: center;
+      min-height: 100%;
+      padding: 28px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--white);
+    }
+
+    .impact-box code {
+      color: #8fe0d2;
+    }
+
+    .steps {
+      display: grid;
+      gap: 18px;
+      margin-top: 38px;
+      counter-reset: step;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 22px;
+      align-items: start;
+      padding: 24px 0;
+      border-top: 1px solid var(--line);
+      counter-increment: step;
+    }
+
+    .step::before {
+      content: counter(step, decimal-leading-zero);
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--rust);
+      font-weight: 900;
+    }
+
+    .command {
+      min-height: 164px;
+      padding: 20px;
+      border: 1px solid rgba(255, 253, 248, 0.16);
+      border-radius: 8px;
+      background: var(--dark-2);
+    }
+
+    .command p {
+      margin: 0 0 12px;
+      color: #c5cdc9;
+      font-weight: 700;
+    }
+
+    .command pre {
+      margin: 0;
+      overflow: auto;
+      color: #e7efe9;
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
+    .footer {
+      padding: 44px 32px;
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+    }
+
+    .footer .wrap {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 18px 20px;
+      }
+
+      .topbar nav {
+        flex-wrap: wrap;
+      }
+
+      .hero {
+        min-height: 78vh;
+        padding: 52px 20px 64px;
+      }
+
+      .artifact-field pre {
+        width: 320px;
+        min-height: 190px;
+        font-size: 0.72rem;
+      }
+
+      .artifact-field .code-a {
+        right: -70px;
+      }
+
+      .artifact-field .code-b {
+        left: -90px;
+      }
+
+      .artifact-field .node {
+        width: 130px;
+      }
+
+      h1 {
+        font-size: 3.25rem;
+      }
+
+      h2 {
+        font-size: 2rem;
+      }
+
+      .section {
+        padding: 68px 20px;
+      }
+
+      .split,
+      .feature-grid,
+      .proof-grid,
+      .use-grid,
+      .command-grid,
+      .story-map {
+        grid-template-columns: 1fr;
+      }
+
+      .diagram-row {
+        grid-template-columns: 1fr;
+      }
+
+      .diagram-cell {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .arrow {
+        min-height: 58px;
+      }
+
+      .map-item,
+      .step {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" aria-label="Site navigation">
+    <a class="brand" href="#top" aria-label="yume-files home">
+      <span class="brand-mark">Y</span>
+      <span>yume-files</span>
+    </a>
+    <nav>
+      <a href="#format">Format</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#fiction">Fiction</a>
+      <a href="#commands">Commands</a>
+      <a href="https://github.com/AoyamaRito/yume-files">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="artifact-field" aria-hidden="true">
+        <pre class="code-a">// @yume-format: 1
+export const __block = {
+  "id": "novelWorld",
+  "type": "world",
+  "versions": [
+    { "content": "...", "refs": [], "tags": [] }
+  ]
+};
+
+// === HEAD ===
+export const world = { ... };
+// === /HEAD ===</pre>
+        <pre class="code-b">// @ref: uses ./novel.world.yume.js
+// @ref: style literary-minimal
+
+export const chapterOne = `
+  The city remembered the rain
+  before anyone remembered its name.
+`;</pre>
+        <div class="node world">world.yume.js</div>
+        <div class="node chapter">chapter draft</div>
+        <div class="node style">style guide</div>
+      </div>
+      <div class="hero-copy">
+        <p class="eyebrow">AI foundation file format</p>
+        <h1 id="hero-title">.yume.js keeps context small, traceable, and useful.</h1>
+        <p class="lead">
+          yume-files is a zero-dependency reference implementation for AI-facing files.
+          It puts current content, history, refs, notes, impact analysis, and runtime pinning into one portable JavaScript file.
+        </p>
+        <div class="hero-actions" aria-label="Primary links">
+          <a class="button" href="https://github.com/AoyamaRito/yume-files">View on GitHub</a>
+          <a class="button secondary" href="#commands">Try the commands</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="why-title">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">Why</p>
+          <h2 id="why-title">AI output improves when the context boundary is clear.</h2>
+        </div>
+        <div>
+          <p class="section-lead">
+            Large context is not automatically good context. AI work often mixes stale notes, old drafts, unrelated specs, and repository-wide history.
+            `.yume.js` aims to hand the model only the Block it needs, plus the refs and reasons that matter.
+          </p>
+        </div>
+      </div>
+      <div class="wrap proof-grid">
+        <article class="card">
+          <span class="metric">1</span>
+          <h3>One file as a durable unit</h3>
+          <p>Current content, append-only versions, mutable notes, and runtime selection live together.</p>
+        </article>
+        <article class="card">
+          <span class="metric">↔</span>
+          <h3>Refs define the reading path</h3>
+          <p>Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.</p>
+        </article>
+        <article class="card">
+          <span class="metric">↓</span>
+          <h3>Less token waste</h3>
+          <p>Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="format" class="section band" aria-labelledby="format-title">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">Format</p>
+          <h2 id="format-title">A `.yume.js` file is normal JavaScript with an embedded history substrate.</h2>
+          <p class="section-lead">
+            The file remains readable with a JS parser. The runtime does not need a database, server, AST package, or sidecar store.
+          </p>
+        </div>
+        <div class="code-panel" aria-label="Small yume.js source example">
+          <div class="code-title"><span>minimal shape</span><span>zero dependency</span></div>
+          <pre><code><span class="accent">// @yume-format: 1</span>
+export const __block = {
+  "id": "chapterOne",
+  "type": "draft",
+  "runtime": { "name": "yume", "version": "001" },
+  "versions": [
+    {
+      "content": "...",
+      "refs": [{ "kind": "uses", "target": "./world.yume.js" }],
+      "tags": ["chapter", "draft"]
+    }
+  ]
+};
+
+<span class="accent">// === HEAD ===</span>
+// @ref: uses ./world.yume.js
+export const chapterOne = "...";
+<span class="accent">// === /HEAD ===</span></code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow" class="section" aria-labelledby="workflow-title">
+      <div class="wrap">
+        <p class="eyebrow">Workflow</p>
+        <h2 id="workflow-title">Expand only what matters. Apply only what changed.</h2>
+        <p class="section-lead">
+          `heavy` creates an AI-editable view from a root Block and its dependencies. `heavy-apply` writes the edited view back and appends new versions only where content changed.
+        </p>
+        <div class="diagram" aria-label="heavy and heavy-apply workflow">
+          <div class="diagram-row">
+            <div class="diagram-cell">
+              <span class="label">Compressed</span>
+              <h3>.yume.js files</h3>
+              <p>Small, local, durable files with version history and refs.</p>
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="diagram-cell">
+              <span class="label">Decompress</span>
+              <h3>heavy view</h3>
+              <p>Root plus resolved context for AI editing.</p>
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="diagram-cell">
+              <span class="label">Recompress</span>
+              <h3>version append</h3>
+              <p>Changed files get new versions and shared applyId.</p>
+            </div>
+          </div>
+        </div>
+        <div class="feature-grid">
+          <article class="card">
+            <h3>impact</h3>
+            <p>Walk reverse refs to see which files depend on a Block before changing it.</p>
+          </article>
+          <article class="card">
+            <h3>refs-check</h3>
+            <p>Validate the graph: dangling paths, duplicate ids, cycles, isolated files, and invalid Blocks.</p>
+          </article>
+          <article class="card">
+            <h3>notes</h3>
+            <p>Add or correct intent after the edit without changing the version hash.</p>
+          </article>
+          <article class="card">
+            <h3>runtime pinning</h3>
+            <p>Each file declares the runtime version it expects, so older files can stay readable.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="fiction" class="section dark" aria-labelledby="fiction-title">
+      <div class="wrap">
+        <p class="eyebrow">Fiction Writing</p>
+        <h2 id="fiction-title">A long novel can become a graph of small, stable creative files.</h2>
+        <p class="section-lead">
+          World, characters, plot rules, style, and chapters can each be a Block. The model reads the few Blocks that matter instead of the whole project.
+        </p>
+        <div class="story-map">
+          <div class="map-list">
+            <div class="map-item">
+              <strong>novel.world.yume.js</strong>
+              <span>World rules, history, geography, constraints.</span>
+            </div>
+            <div class="map-item">
+              <strong>mira.character.yume.js</strong>
+              <span>Voice, motives, secrets, relationship state.</span>
+            </div>
+            <div class="map-item">
+              <strong>style.guide.yume.js</strong>
+              <span>Sentence rhythm, forbidden phrases, tone.</span>
+            </div>
+            <div class="map-item">
+              <strong>chapter-07.draft.yume.js</strong>
+              <span>Draft text with explicit refs to world, character, and style.</span>
+            </div>
+          </div>
+          <aside class="impact-box">
+            <h3>Change a rule, then ask what moves.</h3>
+            <p><code>impact novelWorld 2 .</code> shows the chapters, style files, or workflows that reference the world Block.</p>
+            <p><code>refs-check .</code> catches broken links before the AI writes from stale assumptions.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" aria-labelledby="uses-title">
+      <div class="wrap">
+        <p class="eyebrow">Use Cases</p>
+        <h2 id="uses-title">Not only code. Any AI-facing context can become a foundation file.</h2>
+        <div class="use-grid">
+          <article class="card">
+            <h3>Specs</h3>
+            <p>Keep requirements, decisions, refs, and revision history next to the source of truth.</p>
+          </article>
+          <article class="card">
+            <h3>Workflows</h3>
+            <p>Store repeatable procedures, review rules, templates, and operation notes as one file.</p>
+          </article>
+          <article class="card">
+            <h3>Creative Worlds</h3>
+            <p>Track worldbuilding, character logic, chapter drafts, and style constraints with impact.</p>
+          </article>
+          <article class="card">
+            <h3>Code Blocks</h3>
+            <p>Use JavaScript normally while preserving local history and AI operation grouping.</p>
+          </article>
+          <article class="card">
+            <h3>Agent Memory</h3>
+            <p>Keep local rules and stable context in a portable file, not an opaque service store.</p>
+          </article>
+          <article class="card">
+            <h3>Documentation</h3>
+            <p>Bind generated docs to the templates, workflows, and decisions that shaped them.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="principles-title">
+      <div class="narrow">
+        <p class="eyebrow">Principles</p>
+        <h2 id="principles-title">Stable substrate, evolving runtime.</h2>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3>Keep the physical format boring.</h3>
+              <p>It is a JavaScript file with a clear header, canonical JSON Block data, HEAD, and BOOT regions.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Keep history append-only.</h3>
+              <p>Content versions are immutable. Explanations live in mutable notes so intent can be corrected later.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Keep the runtime local and zero-dep.</h3>
+              <p>The v001 scanner avoids AST package dependencies and favors portable folder movement.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Keep AI context narrow.</h3>
+              <p>Use refs, heavy, impact, and refs-check to send the model the smallest useful slice.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands" class="section dark" aria-labelledby="commands-title">
+      <div class="wrap">
+        <p class="eyebrow">Commands</p>
+        <h2 id="commands-title">Try the reference runtime.</h2>
+        <p class="section-lead">Node.js 20 or newer is enough. The runtime ships in this repository.</p>
+        <div class="command-grid">
+          <div class="command">
+            <p>Run the full e2e suite</p>
+            <pre><code>npm test</code></pre>
+          </div>
+          <div class="command">
+            <p>Show history and current content</p>
+            <pre><code>node examples/hello.fn.yume.js history
+node examples/hello.fn.yume.js show head</code></pre>
+          </div>
+          <div class="command">
+            <p>Expand context for AI editing</p>
+            <pre><code>node examples/hello.fn.yume.js heavy hello 1 .</code></pre>
+          </div>
+          <div class="command">
+            <p>Apply an edited heavy view</p>
+            <pre><code>node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . \
+  --note "AI edited view"</code></pre>
+          </div>
+          <div class="command">
+            <p>Check reverse impact</p>
+            <pre><code>node examples/hello.fn.yume.js impact hello 1 .</code></pre>
+          </div>
+          <div class="command">
+            <p>Validate the refs graph</p>
+            <pre><code>node examples/hello.fn.yume.js refs-check .
+node examples/hello.fn.yume.js refs-check . --json</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="final-title">
+      <div class="narrow">
+        <p class="eyebrow">Status</p>
+        <h2 id="final-title">Small enough to inspect. Strong enough to build on.</h2>
+        <p class="section-lead">
+          yume-files is intentionally conservative: one format, one v001 runtime, zero dependencies, and focused e2e coverage.
+          The next phase is real-world use: novels, specs, workflows, templates, and codebases.
+        </p>
+        <div class="hero-actions">
+          <a class="button" href="https://github.com/AoyamaRito/yume-files">Open the repository</a>
+          <a class="button secondary" href="https://github.com/AoyamaRito/yume-files/blob/main/BLOCKFILE.aiDoc.yume.js">Read the aiDoc spec</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <span>MIT License · yume-files</span>
+      <span>.yume.js foundation file format for AI work</span>
+    </div>
+  </footer>
+</body>
+</html>
