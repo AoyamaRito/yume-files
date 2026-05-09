@@ -17,8 +17,9 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  parseBlock, serializeBlock, hashContent,
+  parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
+  refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, applyList, applyShow, applyIndex, applySearch,
 } from './runtimes/ver001.handle.yume.js';
 
@@ -97,6 +98,29 @@ brokenBlock.versions[0].hash = 'f'.repeat(64);
 const brokenValidation = validateBlock(brokenBlock);
 assert(!brokenValidation.ok && brokenValidation.errors.includes('versions[0].hash mismatch'), 'validateBlock catches hash mismatch');
 
+const extracted = extractRefsAndTags(`
+import { formatName } from './format.fn.yume.js';
+export { helper } from './helper.module.yume.js';
+const mod = await import('./dynamic.module.yume.js');
+// @tags: greeting public-api
+export function hello(name) {
+  return formatName(name);
+}
+`);
+assert(extracted.refs.some((ref) => ref.kind === 'import' && ref.target === './format.fn.yume.js'), 'extractRefsAndTags detects import refs');
+assert(extracted.refs.some((ref) => ref.kind === 'export' && ref.target === './helper.module.yume.js'), 'extractRefsAndTags detects export refs');
+assert(extracted.refs.some((ref) => ref.kind === 'dynamic-import' && ref.target === './dynamic.module.yume.js'), 'extractRefsAndTags detects dynamic import refs');
+assert(extracted.refs.some((ref) => ref.kind === 'calls' && ref.target === 'formatName'), 'extractRefsAndTags detects call refs');
+assert(extracted.tags.includes('greeting') && extracted.tags.includes('public-api'), 'extractRefsAndTags detects tags');
+const extractedNoise = extractRefsAndTags(`
+const text = "notActuallyCalled()";
+// alsoNotCalled()
+realCall();
+`);
+assert(!extractedNoise.refs.some((ref) => ref.target === 'notActuallyCalled'), 'extractRefsAndTags ignores calls in quoted strings');
+assert(!extractedNoise.refs.some((ref) => ref.target === 'alsoNotCalled'), 'extractRefsAndTags ignores calls in comments');
+assert(extractedNoise.refs.some((ref) => ref.kind === 'calls' && ref.target === 'realCall'), 'extractRefsAndTags keeps real call refs');
+
 // ============================================================
 // 4. atomicWrite + acquireLock(tmp folder で実行)
 // ============================================================
@@ -138,7 +162,12 @@ console.log('\n[5b] commitManual — dirty (after editing HEAD)');
   // (= human が editor で HEAD だけ書き換えた状況の simulation)
   const s = await readFile(tmpFile, 'utf8');
   const p = parseBlock(s);
-  p.head = p.head.replace('hello, ${name}!', 'hi, ${name}!');
+  p.head = `import { formatName } from './format.fn.yume.js';
+// @tags: greeting public-api
+export function hello(name) {
+  return formatName(name);
+}
+`;
   await atomicWrite(tmpFile, serializeBlock(p));
 }
 const r2 = await commitManual(tmpFile);
@@ -157,8 +186,13 @@ const versions = await history(tmpFile);
 assert(versions.length === 2, 'history has 2 versions after 1 edit');
 assert(versions[0].prevHash === null, 'first version has prevHash=null');
 assert(versions[1].prevHash === versions[0].hash, 'second version chains to first');
-assert(versions[1].content.includes('hi, ${name}'), 'second version content reflects edit');
+assert(versions[1].content.includes('formatName(name)'), 'second version content reflects edit');
 assert(versions[1].applyId === null, 'commitManual leaves applyId=null');
+assert(versions[1].refs.some((ref) => ref.kind === 'import' && ref.target === './format.fn.yume.js'), 'commitManual stores import refs');
+assert(versions[1].refs.some((ref) => ref.kind === 'calls' && ref.target === 'formatName'), 'commitManual stores call refs');
+assert(versions[1].tags.includes('greeting') && versions[1].tags.includes('public-api'), 'commitManual stores tags');
+assert((await readRefs(tmpFile)).length === versions[1].refs.length, 'refs() reads latest refs');
+assert((await readTags(tmpFile)).includes('greeting'), 'tags() reads latest tags');
 assert(validateBlock(parseBlock(await readFile(tmpFile, 'utf8')).block).ok, 'history validates after commit');
 
 // ============================================================
@@ -180,7 +214,7 @@ assert(notes.length === 0, 'noteRm removes note');
 {
   const s = await readFile(tmpFile, 'utf8');
   const p = parseBlock(s);
-  p.head = p.head.replace('hi, ${name}!', 'hey, ${name}!');
+  p.head = p.head.replace('return formatName(name);', 'return `hey, ${formatName(name)}!`;');
   await atomicWrite(tmpFile, serializeBlock(p));
 }
 const r4 = await commitManual(tmpFile, {

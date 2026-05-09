@@ -39,12 +39,13 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 - `HEAD` region には現在の実コードを置きます。
 - `BOOT` region から co-located runtime を呼び出せます。
 - runtime version を file 側で pin するため、古い file は古い runtime のまま動かせます。
-- v001 runtime は `commit` / `history` / `validate` / `note-*` / `apply-*` を提供します。
+- v001 runtime は `commit` / `history` / `validate` / `refs` / `tags` / `note-*` / `apply-*` を提供します。
 - `notes` は変更理由や意図を書く mutable layer です。version hash には含めません。
 - `applyId` は一連の操作で生まれた version を束ねる ID です。apply 全体にも note を付けられます。
 - folder を走査して、複数ファイルにまたがる apply group を検索できます。
+- HEAD から `refs` / `tags` を抽出し、その Block が何とつながっているかを記録できます。
 
-将来的には、AI が編集した view を `.yume.js` に戻す codec round-trip、refs / tags 抽出、rollback、diff を追加する想定です。
+将来的には、AI が編集した view を `.yume.js` に戻す codec round-trip、rollback、diff を追加する想定です。
 
 ### 使い方
 
@@ -74,6 +75,13 @@ node examples/hello.fn.yume.js validate
 
 ```sh
 node examples/hello.fn.yume.js history
+```
+
+最新 version の refs / tags を表示:
+
+```sh
+node examples/hello.fn.yume.js refs
+node examples/hello.fn.yume.js tags
 ```
 
 手動編集後に HEAD を commit:
@@ -134,6 +142,7 @@ yume-files/
 - runtime は `__block` を実行せず `JSON.parse` します。
 - `versions[]` は append-only です。
 - `hash` / `prevHash` によって履歴 chain を検証します。
+- commit 時に HEAD から `import` / `export ... from` / dynamic `import()` / bare function call / `// @tags:` を抽出します。
 - 書き込みは tmp file + fsync + rename で行います。
 - lock file は atomic create + token ownership で扱います。
 - commentary は `notes` layer に分離し、version hash には含めません。
@@ -202,12 +211,13 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - The `HEAD` region contains the current source code.
 - The optional `BOOT` region can invoke a co-located runtime.
 - Runtime versions are pinned per file, so older files can keep using older runtimes.
-- The v001 runtime currently supports `commit`, `history`, `validate`, `note-*`, and `apply-*`.
+- The v001 runtime currently supports `commit`, `history`, `validate`, `refs`, `tags`, `note-*`, and `apply-*`.
 - `notes` is a mutable commentary layer for intent and reasoning. It is not included in version hashes.
 - `applyId` groups versions produced by the same operation. Notes can also be attached to an apply group.
 - Folder scans can find apply groups that span multiple files.
+- The runtime extracts `refs` / `tags` from `HEAD` so each Block can record what it connects to.
 
-Planned work includes codec round-trip for AI-edited views, refs / tags extraction, rollback, and diff.
+Planned work includes codec round-trip for AI-edited views, rollback, and diff.
 
 ### Usage
 
@@ -237,6 +247,13 @@ Show history:
 
 ```sh
 node examples/hello.fn.yume.js history
+```
+
+Show latest refs / tags:
+
+```sh
+node examples/hello.fn.yume.js refs
+node examples/hello.fn.yume.js tags
 ```
 
 Commit a manually edited `HEAD` region:
@@ -297,6 +314,7 @@ yume-files/
 - The runtime parses `__block` with `JSON.parse` and does not execute it.
 - `versions[]` is append-only.
 - `hash` / `prevHash` form a verifiable history chain.
+- On commit, the runtime extracts `import`, `export ... from`, dynamic `import()`, bare function calls, and `// @tags:`.
 - Writes use tmp file + fsync + rename.
 - Lock files use atomic create + token ownership.
 - Commentary lives in a separate `notes` layer and stays out of version hashes.

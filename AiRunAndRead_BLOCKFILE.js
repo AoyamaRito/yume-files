@@ -21,7 +21,7 @@
 
 export const VERSION = "0.3-draft";
 export const DATE = "2026-05-08";
-export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(notes/apply/folder apply scan included)";
+export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(refs/tags/notes/apply/folder apply scan included)";
 
 // ============================================================
 // §0 動機と一行定義
@@ -123,7 +123,7 @@ export const __block = {
   "type": "fn",
   "schemaVersion": 1,
   "runtime": { "name": "yume", "version": "001" },
-  "api": ["commit", "history", "validate", "noteAdd", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "validate", "refs", "tags", "noteAdd", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     { "hash": "abc123", "prevHash": null,     "content": "export function foo(x){return x;}",      "ts": 1714000000000, "refs": [], "tags": [], "applyId": null },
     { "hash": "def456", "prevHash": "abc123", "content": "export function foo(x){return x + 1;}",  "ts": 1714100000000, "refs": [], "tags": [], "applyId": "apply-2026-05-08-xyz" }
@@ -445,7 +445,7 @@ export const Lifecycle = {
       "   - prevHash = 現 head().hash",
       "   - ts = Date.now()",
       "   - hash = sha256(content + prevHash + ts)",
-      "   - refs / tags は HEAD region を parseJS して再抽出",
+      "   - refs / tags は HEAD region から再抽出",
       "   - applyId = null(単独 commit、recompress group 不在)",
       "6. __block.versions に append",
       "7. atomic write back(tmp file → rename)",
@@ -554,7 +554,7 @@ export const __block = {
     "name": "yume",
     "version": "001"
   },
-  "api": ["commit", "history", "validate", "noteAdd", "noteEdit", "noteRm", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     {
       "hash": "75f051c18c0415b5d5af267581834e21a850f4d3cca46c817b5432f17dc393f0",
@@ -597,11 +597,13 @@ export const RuntimeApiSurface = {
   history:    "(fileUrl) => Promise<Version[]>  — 時系列で versions を返す",
   show:       "(fileUrl, hashOrIdx) => Promise<Version>  — 特定 version 取得",
   diff:       "(fileUrl, hashA, hashB) => Promise<string>  — 2 version 間の text diff",
-  refs:       "(fileUrl) => Promise<Ref[]>  — 自 file の outgoing refs",
+  refs:       "(fileUrl) => Promise<Ref[]>  — 最新 version の outgoing refs",
+  tags:       "(fileUrl) => Promise<string[]>  — 最新 version の tags",
   impact:     "(fileUrls: string[], rootId: string) => Promise<string[]>  — backward 推移閉包",
   validate:   "(fileUrl) => Promise<{ok: boolean, errors: string[]}>  — schema + hash chain 検査",
   parseBlock: "(source: string) => {block, head, boot}  — pure parser、副作用なし",
   serializeBlock: "({block, head, boot}) => string  — round-trip 保証",
+  extractRefsAndTags: "(content: string) => {refs: Ref[], tags: string[]}  — HEAD region から import / export-from / dynamic import / bare calls / // @tags: を抽出",
 
   // --- Notes(§3.5、git notes 相当、mutable)---
   noteAdd:    "(fileUrl, key: hash | 'apply:<id>', note: {author,text,kind?}) => Promise<{noteId: string}>",
@@ -743,7 +745,7 @@ file' (compressed, +1 version) ←── recompress(heavyApply) ←── edited
 // ============================================================
 export const OpenQuestions = [
   "delta 圧縮 vs full content per version: versions[].content は full string が default だが、巨大化すると file が膨らむ。delta + N 毎に full snapshot の hybrid を後日検討",
-  "refs の自動抽出範囲: HEAD region の parseJS から拾う import/calls/contains は decided、observes / link 系は手動 tag が必要(明示)",
+  "refs の自動抽出範囲: v001 は軽量 scan で import/export-from/dynamic import/bare calls を拾う。AST parser 導入や observes / link 系は v00N で検討",
   "binary content(画像 / sound / 等)を Block 化したい場合: base64 inline か、別 sidecar か。現 spec は string のみ、binary は scope 外",
   "merge 時の hash chain rebase: 2 branch で同 file を別々に commit した後の merge logic は現 spec 外、別 doc で",
   "schemaVersion 2 で何を入れるか: signature / encryption / multi-author 履歴 等は将来検討",

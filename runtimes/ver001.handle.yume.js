@@ -14,11 +14,11 @@
 //   - history(versions 列挙)
 //   - notes API(noteAdd / noteEdit / noteRm / noteList)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
+//   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @tags:)
 //   - cli(verb dispatcher)
 //
 // 未実装(後続 phase):
 //   - decompress / recompress(codec、Phase 5)
-//   - refs / tags 抽出(Phase 5)
 //   - rollback / show / diff
 //
 // spec: ../AiRunAndRead_BLOCKFILE.js
@@ -155,6 +155,150 @@ export function hashContent(content, prevHash, ts) {
   return createHash('sha256')
     .update(content + '\n' + (prevHash ?? '') + '\n' + ts)
     .digest('hex');
+}
+
+// ============================================================
+// refs / tags extraction — conservative source scan
+// ============================================================
+export function extractRefsAndTags(content) {
+  if (typeof content !== 'string') throw new TypeError('extractRefsAndTags: content must be string');
+  return {
+    refs: extractRefs(content),
+    tags: extractTags(content),
+  };
+}
+
+function extractRefs(content) {
+  const source = stripComments(content);
+  const callSource = stripComments(content, { preservePlainStrings: false });
+  const refs = [];
+
+  collectModuleRefs(refs, source, /\bimport\s+(?:[^'";]*?\s+from\s*)?["']([^"']+)["']/g, 'import');
+  collectModuleRefs(refs, source, /\bexport\s+[^'";]*?\s+from\s*["']([^"']+)["']/g, 'export');
+  collectModuleRefs(refs, source, /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g, 'dynamic-import');
+  collectCallRefs(refs, callSource);
+
+  return uniqueRefs(refs);
+}
+
+function collectModuleRefs(refs, source, pattern, kind) {
+  for (const match of source.matchAll(pattern)) {
+    refs.push({ kind, target: match[1] });
+  }
+}
+
+const CALL_EXCLUDE = new Set([
+  'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'import',
+  'typeof', 'new', 'super', 'await', 'do', 'throw', 'class',
+]);
+
+function collectCallRefs(refs, source) {
+  const pattern = /\b([A-Za-z_$][\w$]*)\s*\(/g;
+  for (const match of source.matchAll(pattern)) {
+    const name = match[1];
+    if (CALL_EXCLUDE.has(name)) continue;
+
+    const before = source.slice(Math.max(0, match.index - 32), match.index);
+    const prev = source[match.index - 1];
+    if (/\b(function|class)\s+$/.test(before)) continue;
+    if (prev === '.' || /[\w$]/.test(prev)) continue;
+
+    refs.push({ kind: 'calls', target: name });
+  }
+}
+
+function extractTags(content) {
+  const tags = [];
+  const pattern = /\/\/\s*@tags:\s*(.+)$/gm;
+  for (const match of content.matchAll(pattern)) {
+    for (const tag of match[1].split(/[,\s]+/)) {
+      const trimmed = tag.trim();
+      if (trimmed) tags.push(trimmed);
+    }
+  }
+  return [...new Set(tags)];
+}
+
+function uniqueRefs(refs) {
+  const out = [];
+  const seen = new Set();
+  for (const ref of refs) {
+    const key = `${ref.kind}\0${ref.target}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ref);
+  }
+  return out;
+}
+
+function stripComments(source, opts = {}) {
+  const preservePlainStrings = opts.preservePlainStrings !== false;
+  let out = '';
+  let inString = false;
+  let stringChar = null;
+  let escape = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    const next = source[i + 1];
+
+    if (inLineComment) {
+      out += c === '\n' ? '\n' : ' ';
+      if (c === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      out += c === '\n' ? '\n' : ' ';
+      if (c === '*' && next === '/') {
+        out += ' ';
+        i++;
+        inBlockComment = false;
+      }
+      continue;
+    }
+    if (escape) {
+      out += stringMaskChar(c, stringChar, preservePlainStrings);
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      out += stringMaskChar(c, stringChar, preservePlainStrings);
+      if (c === '\\') {
+        escape = true;
+      } else if (c === stringChar) {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (c === '/' && next === '/') {
+      out += '  ';
+      i++;
+      inLineComment = true;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      out += '  ';
+      i++;
+      inBlockComment = true;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      inString = true;
+      stringChar = c;
+      out += stringMaskChar(c, stringChar, preservePlainStrings);
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+function stringMaskChar(c, stringChar, preservePlainStrings) {
+  if (preservePlainStrings || stringChar === '`') return c;
+  return c === '\n' ? '\n' : ' ';
 }
 
 // ============================================================
@@ -306,6 +450,23 @@ export function validateBlock(block) {
     if (!Array.isArray(v.refs)) errors.push(`${prefix}.refs must be an array`);
     if (!Array.isArray(v.tags)) errors.push(`${prefix}.tags must be an array`);
     if (v.applyId !== null && typeof v.applyId !== 'string') errors.push(`${prefix}.applyId must be null or string`);
+    if (Array.isArray(v.refs)) {
+      for (let j = 0; j < v.refs.length; j++) {
+        const ref = v.refs[j];
+        const refPrefix = `${prefix}.refs[${j}]`;
+        if (!isPlainObject(ref)) {
+          errors.push(`${refPrefix} must be an object`);
+          continue;
+        }
+        if (typeof ref.kind !== 'string' || ref.kind.length === 0) errors.push(`${refPrefix}.kind must be a non-empty string`);
+        if (typeof ref.target !== 'string' || ref.target.length === 0) errors.push(`${refPrefix}.target must be a non-empty string`);
+      }
+    }
+    if (Array.isArray(v.tags)) {
+      for (let j = 0; j < v.tags.length; j++) {
+        if (typeof v.tags[j] !== 'string' || v.tags[j].length === 0) errors.push(`${prefix}.tags[${j}] must be a non-empty string`);
+      }
+    }
 
     if (typeof v.content === 'string' && typeof v.ts === 'number' && typeof v.hash === 'string') {
       const expected = hashContent(v.content, v.prevHash, v.ts);
@@ -430,6 +591,21 @@ export async function noteList(fileUrl, target = null) {
   return Object.entries(block.notes ?? {}).flatMap(([key, notes]) =>
     notes.map((note) => ({ key, ...note }))
   );
+}
+
+// ============================================================
+// refs / tags — latest version metadata
+// ============================================================
+export async function refs(fileUrl) {
+  const filePath = toPath(fileUrl);
+  const { block } = await readParsedFile(filePath);
+  return block.versions.at(-1)?.refs ?? [];
+}
+
+export async function tags(fileUrl) {
+  const filePath = toPath(fileUrl);
+  const { block } = await readParsedFile(filePath);
+  return block.versions.at(-1)?.tags ?? [];
 }
 
 // ============================================================
@@ -662,13 +838,14 @@ export async function commitManual(fileUrl, opts = {}) {
     const prevHash = lastVersion?.hash ?? null;
     const hash = hashContent(headInSource, prevHash, ts);
     const applyId = opts.applyId ?? (opts.note ? makeApplyId() : null);
+    const extracted = extractRefsAndTags(headInSource);
     const newVersion = {
       hash,
       prevHash,
       content: headInSource,
       ts,
-      refs: [],   // Phase 5 で抽出実装
-      tags: [],   // Phase 5
+      refs: extracted.refs,
+      tags: extracted.tags,
       applyId,
     };
     parsed.block.versions.push(newVersion);
@@ -755,6 +932,18 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
+    case 'refs': {
+      for (const ref of await refs(fileUrl)) {
+        console.log(`${ref.kind}  ${ref.target}`);
+      }
+      return;
+    }
+    case 'tags': {
+      for (const tag of await tags(fileUrl)) {
+        console.log(tag);
+      }
+      return;
+    }
     case 'apply-list': {
       const groups = await applyList(fileUrl);
       for (const group of groups) {
@@ -814,7 +1003,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, validate, note-add, note-edit, note-rm, note-list, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, validate, refs, tags, note-add, note-edit, note-rm, note-list, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }
