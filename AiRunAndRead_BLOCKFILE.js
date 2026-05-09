@@ -21,7 +21,7 @@
 
 export const VERSION = "0.3-draft";
 export const DATE = "2026-05-08";
-export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(refs/tags/notes/apply/folder apply scan included)";
+export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(show/diff/rollback/refs/tags/notes/apply/folder apply scan included)";
 
 // ============================================================
 // §0 動機と一行定義
@@ -100,7 +100,7 @@ export const Schema = {
   },
   // 任意フィールド
   optional: {
-    api:   "string[] — file が runtime に期待する verb の宣言。**freeform**(canonical list 固定なし)、ヒント情報。例: ['commit', 'history', 'validate', 'noteAdd', 'applyList']",
+    api:   "string[] — file が runtime に期待する verb の宣言。**freeform**(canonical list 固定なし)、ヒント情報。例: ['commit', 'history', 'show', 'diff', 'rollback', 'validate', 'noteAdd', 'applyList']",
     meta:  "object — 任意の付加情報(author / created / 等)。挙動には影響しない",
     notes: "object — SHADOW commentary layer。{ [versionHash | 'apply:<applyId>']: Note[] }(§3.5 参照)",
   },
@@ -123,7 +123,7 @@ export const __block = {
   "type": "fn",
   "schemaVersion": 1,
   "runtime": { "name": "yume", "version": "001" },
-  "api": ["commit", "history", "validate", "refs", "tags", "noteAdd", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     { "hash": "abc123", "prevHash": null,     "content": "export function foo(x){return x;}",      "ts": 1714000000000, "refs": [], "tags": [], "applyId": null },
     { "hash": "def456", "prevHash": "abc123", "content": "export function foo(x){return x + 1;}",  "ts": 1714100000000, "refs": [], "tags": [], "applyId": "apply-2026-05-08-xyz" }
@@ -554,7 +554,7 @@ export const __block = {
     "name": "yume",
     "version": "001"
   },
-  "api": ["commit", "history", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     {
       "hash": "75f051c18c0415b5d5af267581834e21a850f4d3cca46c817b5432f17dc393f0",
@@ -595,8 +595,8 @@ export const RuntimeApiSurface = {
 
   // --- Read(versions / notes 閲覧、副作用なし)---
   history:    "(fileUrl) => Promise<Version[]>  — 時系列で versions を返す",
-  show:       "(fileUrl, hashOrIdx) => Promise<Version>  — 特定 version 取得",
-  diff:       "(fileUrl, hashA, hashB) => Promise<string>  — 2 version 間の text diff",
+  show:       "(fileUrl, hashOrIdx = 'head') => Promise<Version>  — 特定 version 取得",
+  diff:       "(fileUrl, hashA = '-2', hashB = '-1') => Promise<string>  — 2 version 間の text diff",
   refs:       "(fileUrl) => Promise<Ref[]>  — 最新 version の outgoing refs",
   tags:       "(fileUrl) => Promise<string[]>  — 最新 version の tags",
   impact:     "(fileUrls: string[], rootId: string) => Promise<string[]>  — backward 推移閉包",
@@ -614,7 +614,7 @@ export const RuntimeApiSurface = {
 
   // --- Boundary(AI を通さない人手編集の救済)---
   commitManual: "(fileUrl, opts?: {applyId?: string, note?: {author,text,kind?}}) => Promise<{committed: boolean, newHash?: string, applyId?: string | null}>  — HEAD region と head().content の差を手動で reconcile、稀ケース",
-  rollback:     "(fileUrl, target: string | number) => Promise<{newHash: string}>  — 指定 version content を新 version として append",
+  rollback:     "(fileUrl, target: string | number, opts?: {applyId?, note?}) => Promise<{newHash: string, targetHash: string, applyId: string | null}>  — 指定 version content を新 version として append",
 
   // --- Apply(applyId group 閲覧、副作用なし)---
   applyList: "(fileUrl) => Promise<{applyId: string, versions: Version[], noteCount: number}[]>",

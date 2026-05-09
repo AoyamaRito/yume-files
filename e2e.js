@@ -7,8 +7,9 @@
 //   4. atomicWrite + acquireLock — concurrent 動作の sanity
 //   5. commitManual — clean(差なし)/ dirty(HEAD 編集後)の挙動
 //   6. history — versions が正しく返る
-//   7. notes / apply — mutable notes と applyId group の挙動
-//   8. folder apply — 複数 file 横断 apply 検索
+//   7. show / diff — version 取得と text diff
+//   8. notes / apply / rollback — mutable notes、applyId group、append-only rollback
+//   9. folder apply — 複数 file 横断 apply 検索
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
@@ -19,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
+  show, diff, rollback,
   refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, applyList, applyShow, applyIndex, applySearch,
 } from './runtimes/ver001.handle.yume.js';
@@ -196,9 +198,23 @@ assert((await readTags(tmpFile)).includes('greeting'), 'tags() reads latest tags
 assert(validateBlock(parseBlock(await readFile(tmpFile, 'utf8')).block).ok, 'history validates after commit');
 
 // ============================================================
-// 7. notes / apply
+// 7. show / diff
 // ============================================================
-console.log('\n[7] notes / apply');
+console.log('\n[7] show / diff');
+const shownFirst = await show(tmpFile, 0);
+const shownLatest = await show(tmpFile, '-1');
+const versionDiff = await diff(tmpFile, 0, 1);
+assert(shownFirst.hash === versions[0].hash, 'show() resolves numeric index');
+assert(shownLatest.hash === versions[1].hash, 'show() resolves negative latest index');
+assert(versionDiff.includes(`--- ${versions[0].hash.slice(0, 7)}`), 'diff() includes old version label');
+assert(versionDiff.includes(`+++ ${versions[1].hash.slice(0, 7)}`), 'diff() includes new version label');
+assert(versionDiff.includes('-  return `hello, ${name}!`;'), 'diff() includes removed line');
+assert(versionDiff.includes('+  return formatName(name);'), 'diff() includes added line');
+
+// ============================================================
+// 8. notes / apply
+// ============================================================
+console.log('\n[8] notes / apply');
 const add = await noteAdd(tmpFile, 'head', { author: 'human', text: 'manual note', kind: 'intent' });
 assert(typeof add.noteId === 'string' && add.noteId.startsWith('n-'), 'noteAdd returns note id');
 assert(add.key === versions[1].hash, 'head note resolves to latest version hash');
@@ -231,9 +247,41 @@ assert(group.notes[0].text === 'changed greeting via apply', 'apply note text is
 assert(validateBlock(parseBlock(await readFile(tmpFile, 'utf8')).block).ok, 'notes/apply validate after mutation');
 
 // ============================================================
-// 8. folder apply
+// 8b. rollback
 // ============================================================
-console.log('\n[8] folder apply');
+console.log('\n[8b] rollback');
+let dirtyRollbackBlocked = false;
+{
+  const s = await readFile(tmpFile, 'utf8');
+  const p = parseBlock(s);
+  p.head += '// dirty edit\n';
+  await atomicWrite(tmpFile, serializeBlock(p));
+  try { await rollback(tmpFile, '-1'); } catch { dirtyRollbackBlocked = true; }
+
+  const restored = parseBlock(await readFile(tmpFile, 'utf8'));
+  restored.head = restored.block.versions.at(-1).content;
+  await atomicWrite(tmpFile, serializeBlock(restored));
+}
+assert(dirtyRollbackBlocked, 'rollback refuses dirty HEAD');
+const beforeRollback = await history(tmpFile);
+const targetBeforeRollback = beforeRollback.at(-2);
+const latestBeforeRollback = beforeRollback.at(-1);
+const rb = await rollback(tmpFile, '-1', {
+  note: { author: 'ai', text: 'rollback to previous version', kind: 'rollback' },
+});
+const afterRollback = await history(tmpFile);
+assert(afterRollback.length === beforeRollback.length + 1, 'rollback appends a new version');
+assert(rb.targetHash === targetBeforeRollback.hash, 'rollback -1 targets previous version');
+assert(afterRollback.at(-1).prevHash === latestBeforeRollback.hash, 'rollback chains from previous head');
+assert(afterRollback.at(-1).content === targetBeforeRollback.content, 'rollback content matches target version');
+assert(afterRollback.at(-1).applyId === rb.applyId && rb.applyId, 'rollback with note stores an applyId');
+assert((await show(tmpFile, 'head')).hash === rb.newHash, 'show() reads rollback head');
+assert(validateBlock(parseBlock(await readFile(tmpFile, 'utf8')).block).ok, 'rollback validates after mutation');
+
+// ============================================================
+// 9. folder apply
+// ============================================================
+console.log('\n[9] folder apply');
 const tmpFile2 = join(tmpDir, 'hello2.fn.yume.js');
 await cp(HELLO_SRC, tmpFile2);
 {

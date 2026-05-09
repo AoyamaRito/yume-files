@@ -11,7 +11,7 @@
 //   - acquireLock(stale recovery 込み)
 //   - validateBlock(hash chain / schema sanity)
 //   - commitManual(boundary case、AI 不在の人手編集救済)
-//   - history(versions 列挙)
+//   - history / show / diff / rollback
 //   - notes API(noteAdd / noteEdit / noteRm / noteList)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
 //   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @tags:)
@@ -19,7 +19,6 @@
 //
 // 未実装(後続 phase):
 //   - decompress / recompress(codec、Phase 5)
-//   - rollback / show / diff
 //
 // spec: ../AiRunAndRead_BLOCKFILE.js
 
@@ -818,6 +817,104 @@ function noteCountForVersion(block, version) {
   return versionNotes + applyNotes;
 }
 
+function appendVersion(block, content, opts = {}) {
+  const lastVersion = block.versions.at(-1);
+  const ts = Date.now();
+  const prevHash = lastVersion?.hash ?? null;
+  const hash = hashContent(content, prevHash, ts);
+  const applyId = opts.applyId ?? (opts.note ? makeApplyId() : null);
+  const extracted = extractRefsAndTags(content);
+  const version = {
+    hash,
+    prevHash,
+    content,
+    ts,
+    refs: extracted.refs,
+    tags: extracted.tags,
+    applyId,
+  };
+  block.versions.push(version);
+  if (opts.note) {
+    ensureNotes(block);
+    block.notes[`apply:${applyId}`] ??= [];
+    block.notes[`apply:${applyId}`].push(makeNote(opts.note));
+  }
+  return version;
+}
+
+function resolveVersion(block, target = 'head', opts = {}) {
+  if (!Array.isArray(block.versions) || block.versions.length === 0) {
+    throw new Error('resolveVersion: no versions');
+  }
+  if (target == null || target === '' || target === 'head' || target === 'latest') {
+    return block.versions.at(-1);
+  }
+  if (typeof target === 'number' && Number.isInteger(target)) {
+    return resolveVersionIndex(block, target, opts);
+  }
+  if (typeof target !== 'string') throw new TypeError('version target must be string or integer');
+
+  if (/^-?\d+$/.test(target)) {
+    return resolveVersionIndex(block, Number(target), opts);
+  }
+
+  const matches = block.versions.filter((version) => version.hash === target || version.hash.startsWith(target));
+  if (matches.length === 0) throw new Error(`version not found: ${target}`);
+  if (matches.length > 1) throw new Error(`version hash prefix is ambiguous: ${target}`);
+  return matches[0];
+}
+
+function resolveVersionIndex(block, index, opts = {}) {
+  const offset = opts.negativeFromPrevious && index < 0 ? -1 : 0;
+  const actualIndex = index < 0 ? block.versions.length + index + offset : index;
+  const version = block.versions[actualIndex];
+  if (!version) throw new Error(`version index not found: ${index}`);
+  return version;
+}
+
+function versionLabel(version, fallback) {
+  return version ? `${version.hash.slice(0, 7)}` : fallback;
+}
+
+function lineDiff(oldText, newText, oldLabel = 'old', newLabel = 'new') {
+  if (oldText === newText) return '';
+
+  const a = splitDiffLines(oldText);
+  const b = splitDiffLines(newText);
+  const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j]
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+
+  const lines = [`--- ${oldLabel}`, `+++ ${newLabel}`];
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      lines.push(` ${a[i]}`);
+      i++;
+      j++;
+    } else if (j < b.length && (i === a.length || dp[i][j + 1] >= dp[i + 1][j])) {
+      lines.push(`+${b[j]}`);
+      j++;
+    } else {
+      lines.push(`-${a[i]}`);
+      i++;
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
+function splitDiffLines(text) {
+  const lines = text.split('\n');
+  if (lines.at(-1) === '') lines.pop();
+  return lines;
+}
+
 // ============================================================
 // commitManual — boundary case、AI 不在の人手編集救済
 // ============================================================
@@ -834,28 +931,9 @@ export async function commitManual(fileUrl, opts = {}) {
 
     if (headInSource === lastContent) return { committed: false };
 
-    const ts = Date.now();
-    const prevHash = lastVersion?.hash ?? null;
-    const hash = hashContent(headInSource, prevHash, ts);
-    const applyId = opts.applyId ?? (opts.note ? makeApplyId() : null);
-    const extracted = extractRefsAndTags(headInSource);
-    const newVersion = {
-      hash,
-      prevHash,
-      content: headInSource,
-      ts,
-      refs: extracted.refs,
-      tags: extracted.tags,
-      applyId,
-    };
-    parsed.block.versions.push(newVersion);
-    if (opts.note) {
-      ensureNotes(parsed.block);
-      parsed.block.notes[`apply:${applyId}`] ??= [];
-      parsed.block.notes[`apply:${applyId}`].push(makeNote(opts.note));
-    }
+    const newVersion = appendVersion(parsed.block, headInSource, opts);
     await atomicWrite(filePath, serializeBlock(parsed));
-    return { committed: true, newHash: hash, applyId };
+    return { committed: true, newHash: newVersion.hash, applyId: newVersion.applyId };
   } finally {
     await release();
   }
@@ -868,6 +946,54 @@ export async function history(fileUrl) {
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   return block.versions;
+}
+
+export async function show(fileUrl, target = 'head') {
+  const filePath = toPath(fileUrl);
+  const { block } = await readParsedFile(filePath);
+  return resolveVersion(block, target);
+}
+
+export async function diff(fileUrl, from = '-2', to = '-1') {
+  const filePath = toPath(fileUrl);
+  const { block } = await readParsedFile(filePath);
+  const oldVersion = resolveVersion(block, from);
+  const newVersion = resolveVersion(block, to);
+  return lineDiff(
+    oldVersion.content,
+    newVersion.content,
+    versionLabel(oldVersion, String(from)),
+    versionLabel(newVersion, String(to))
+  );
+}
+
+export async function rollback(fileUrl, target, opts = {}) {
+  const filePath = toPath(fileUrl);
+  const release = await acquireLock(filePath);
+  try {
+    const parsed = await readParsedFile(filePath);
+    const lastVersion = parsed.block.versions.at(-1);
+    if (!lastVersion) throw new Error('rollback: no versions');
+    if (parsed.head !== lastVersion.content) {
+      throw new Error('rollback: HEAD is dirty; run commit before rollback');
+    }
+
+    const targetVersion = resolveVersion(parsed.block, target, { negativeFromPrevious: true });
+    if (targetVersion.hash === lastVersion.hash) {
+      throw new Error('rollback: target is already the latest version');
+    }
+
+    parsed.head = targetVersion.content;
+    const newVersion = appendVersion(parsed.block, targetVersion.content, opts);
+    await atomicWrite(filePath, serializeBlock(parsed));
+    return {
+      newHash: newVersion.hash,
+      targetHash: targetVersion.hash,
+      applyId: newVersion.applyId,
+    };
+  } finally {
+    await release();
+  }
 }
 
 // ============================================================
@@ -897,6 +1023,39 @@ export async function cli(fileUrl, block, argv) {
         const notes = noteCountForVersion(parsed.block, v);
         console.log(`${v.hash.slice(0, 7)}  ${ts}  refs=${v.refs.length}  apply=${aid}  notes=${notes}`);
       }
+      return;
+    }
+    case 'show': {
+      const v = await show(fileUrl, argv[3] ?? 'head');
+      console.log(`hash: ${v.hash}`);
+      console.log(`prevHash: ${v.prevHash ?? '-'}`);
+      console.log(`ts: ${new Date(v.ts).toISOString()}`);
+      console.log(`refs: ${v.refs.length}`);
+      console.log(`tags: ${v.tags.join(',') || '-'}`);
+      console.log(`apply: ${v.applyId ?? '-'}`);
+      console.log('--- content');
+      process.stdout.write(v.content.endsWith('\n') ? v.content : `${v.content}\n`);
+      return;
+    }
+    case 'diff': {
+      const from = argv[3] ?? '-2';
+      const to = argv[4] ?? '-1';
+      process.stdout.write(await diff(fileUrl, from, to));
+      return;
+    }
+    case 'rollback': {
+      const target = argv[3];
+      if (!target) return usage('rollback <target>');
+      const noteText = flagValue(argv, '--note');
+      const r = await rollback(fileUrl, target, {
+        applyId: flagValue(argv, '--apply-id'),
+        note: noteText ? {
+          author: flagValue(argv, '--author') ?? 'human',
+          kind: flagValue(argv, '--kind'),
+          text: noteText,
+        } : undefined,
+      });
+      console.log(`rolled back: ${r.targetHash.slice(0, 7)} -> ${r.newHash.slice(0, 7)}  apply=${r.applyId ?? '-'}`);
       return;
     }
     case 'note-add': {
@@ -1003,7 +1162,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, validate, refs, tags, note-add, note-edit, note-rm, note-list, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }
