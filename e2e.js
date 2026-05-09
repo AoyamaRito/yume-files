@@ -75,6 +75,42 @@ assert(globalThis.__yumeBlockParseExecuted === false, 'does not execute __block 
 delete globalThis.__yumeBlockParseExecuted;
 
 // ============================================================
+// 1c. parseBlock — nested marker literals (aiDoc self-description)
+// ============================================================
+console.log('\n[1c] parseBlock nested markers');
+const nestedSource = `// @yume-format: 1
+
+export const __block = {
+  "id": "nested",
+  "type": "doc",
+  "schemaVersion": 1,
+  "runtime": { "name": "yume", "version": "001" },
+  "versions": []
+};
+
+// === HEAD ===
+export const Markers = {
+  begin: "// === HEAD ===",
+  end:   "// === /HEAD ===",
+};
+export const Sample = \`
+// === HEAD ===
+inner content
+// === /HEAD ===
+\`;
+export const real = "preserved";
+// === /HEAD ===
+
+// === BOOT ===
+console.log("boot region");
+// === /BOOT ===
+`;
+const nested = parseBlock(nestedSource);
+assert(nested.head.includes('export const real = "preserved";'), 'parseBlock skips marker literals inside string/template');
+assert(nested.head.includes('// === HEAD ==='), 'string-bound marker literal preserved in HEAD content');
+assert(nested.boot.trim() === 'console.log("boot region");', 'BOOT extracted past nested HEAD markers');
+
+// ============================================================
 // 2. serializeBlock round-trip
 // ============================================================
 console.log('\n[2] serializeBlock round-trip');
@@ -124,6 +160,28 @@ realCall();
 assert(!extractedNoise.refs.some((ref) => ref.target === 'notActuallyCalled'), 'extractRefsAndTags ignores calls in quoted strings');
 assert(!extractedNoise.refs.some((ref) => ref.target === 'alsoNotCalled'), 'extractRefsAndTags ignores calls in comments');
 assert(extractedNoise.refs.some((ref) => ref.kind === 'calls' && ref.target === 'realCall'), 'extractRefsAndTags keeps real call refs');
+
+const extractedSourceBoundaries = extractRefsAndTags([
+  `const docs = "import { nope } from './quoted.js'; // @tags: quoted";`,
+  'const templateDoc = `',
+  '// @tags: template-noise',
+  'notTemplateTextCall();',
+  '${templateExprCall(name)}',
+  '`;',
+  '// @tags: real-tag',
+  `import { yes } from './real.js';`,
+  `const dynamic = await import('./real-dynamic.js');`,
+  'realBoundaryCall();',
+].join('\n'));
+assert(!extractedSourceBoundaries.refs.some((ref) => ref.target === './quoted.js'), 'extractRefsAndTags ignores import text inside strings');
+assert(!extractedSourceBoundaries.tags.includes('quoted'), 'extractRefsAndTags ignores tag text inside strings');
+assert(!extractedSourceBoundaries.tags.includes('template-noise'), 'extractRefsAndTags ignores tag text inside template text');
+assert(!extractedSourceBoundaries.refs.some((ref) => ref.target === 'notTemplateTextCall'), 'extractRefsAndTags ignores calls in template text');
+assert(extractedSourceBoundaries.refs.some((ref) => ref.target === 'templateExprCall'), 'extractRefsAndTags keeps calls inside template expressions');
+assert(extractedSourceBoundaries.refs.some((ref) => ref.kind === 'import' && ref.target === './real.js'), 'extractRefsAndTags keeps real import refs after string masking');
+assert(extractedSourceBoundaries.refs.some((ref) => ref.kind === 'dynamic-import' && ref.target === './real-dynamic.js'), 'extractRefsAndTags keeps real dynamic import refs after string masking');
+assert(extractedSourceBoundaries.tags.includes('real-tag'), 'extractRefsAndTags keeps real comment tags');
+assert(extractedSourceBoundaries.refs.some((ref) => ref.target === 'realBoundaryCall'), 'extractRefsAndTags keeps real boundary calls');
 
 // ============================================================
 // 4. atomicWrite + acquireLock(tmp folder で実行)

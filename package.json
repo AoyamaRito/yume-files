@@ -6,7 +6,7 @@
   "main": "runtimes/ver001.handle.yume.js",
   "scripts": {
     "test": "node e2e.js",
-    "spec": "node AiRunAndRead_BLOCKFILE.js"
+    "spec": "node BLOCKFILE.aiDoc.yume.js show head"
   },
   "license": "MIT",
   "author": "沖井広行 / AoyamaRito",

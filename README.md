@@ -158,7 +158,7 @@ node examples/hello.fn.yume.js apply-search . apply-demo-001
 
 ```txt
 yume-files/
-├── AiRunAndRead_BLOCKFILE.js     # canonical spec
+├── BLOCKFILE.aiDoc.yume.js       # canonical spec (role=aiDoc, self-historicizing)
 ├── runtimes/
 │   └── ver001.handle.yume.js      # runtime v001
 ├── examples/
@@ -366,7 +366,7 @@ node examples/hello.fn.yume.js apply-search . apply-demo-001
 
 ```txt
 yume-files/
-├── AiRunAndRead_BLOCKFILE.js     # canonical spec
+├── BLOCKFILE.aiDoc.yume.js       # canonical spec (role=aiDoc, self-historicizing)
 ├── runtimes/
 │   └── ver001.handle.yume.js      # runtime v001
 ├── examples/

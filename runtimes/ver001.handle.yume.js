@@ -21,7 +21,7 @@
 // 未実装(後続 phase):
 //   - impact
 //
-// spec: ../AiRunAndRead_BLOCKFILE.js
+// spec: ../BLOCKFILE.aiDoc.yume.js
 
 import { readFile, rename, unlink, open, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -120,16 +120,50 @@ function extractBlockExpr(source) {
 }
 
 function extractRegion(source, beginMarker, endMarker) {
-  const beginIdx = source.indexOf(beginMarker);
+  const beginIdx = findMarkerOutsideStrings(source, beginMarker, 0);
   if (beginIdx < 0) return null;
   const afterBegin = beginIdx + beginMarker.length;
   // skip the newline immediately after begin marker
   const contentStart = source[afterBegin] === '\n' ? afterBegin + 1 : afterBegin;
-  const endIdx = source.indexOf(endMarker, contentStart);
+  const endIdx = findMarkerOutsideStrings(source, endMarker, contentStart);
   if (endIdx < 0) return null;
   // trim the trailing newline before end marker
   const contentEnd = source[endIdx - 1] === '\n' ? endIdx - 1 : endIdx;
   return source.slice(contentStart, contentEnd);
+}
+
+// Find marker outside string/template literals and block comments.
+// Skips matches inside `"..."`, `'...'`, `` `...` ``, and `/* ... */`.
+// Does NOT skip line comments because markers ARE line comments themselves.
+// Required so AI docs (e.g. BLOCKFILE.aiDoc.yume.js) can quote marker literals
+// in spec bodies without truncating their own HEAD region.
+function findMarkerOutsideStrings(source, marker, startFrom) {
+  let i = startFrom;
+  let inString = false;
+  let stringChar = null;
+  let escape = false;
+  let inBlockComment = false;
+
+  while (i <= source.length - marker.length) {
+    const c = source[i];
+
+    if (inBlockComment) {
+      if (c === '*' && source[i + 1] === '/') { inBlockComment = false; i += 2; continue; }
+      i++; continue;
+    }
+    if (escape) { escape = false; i++; continue; }
+    if (inString) {
+      if (c === '\\') { escape = true; i++; continue; }
+      if (c === stringChar) { inString = false; stringChar = null; }
+      i++; continue;
+    }
+    if (c === '/' && source[i + 1] === '*') { inBlockComment = true; i += 2; continue; }
+    if (c === '"' || c === "'" || c === '`') { inString = true; stringChar = c; i++; continue; }
+
+    if (source.startsWith(marker, i)) return i;
+    i++;
+  }
+  return -1;
 }
 
 // ============================================================
@@ -174,20 +208,20 @@ export function extractRefsAndTags(content) {
 }
 
 function extractRefs(content) {
-  const source = stripComments(content);
-  const callSource = stripComments(content, { preservePlainStrings: false });
+  const sourceView = makeSourceView(content);
   const refs = [];
 
-  collectModuleRefs(refs, source, /\bimport\s+(?:[^'";]*?\s+from\s*)?["']([^"']+)["']/g, 'import');
-  collectModuleRefs(refs, source, /\bexport\s+[^'";]*?\s+from\s*["']([^"']+)["']/g, 'export');
-  collectModuleRefs(refs, source, /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g, 'dynamic-import');
-  collectCallRefs(refs, callSource);
+  collectModuleRefs(refs, sourceView, /\bimport\s+(?:[^'";]*?\s+from\s*)?["']([^"']+)["']/g, 'import');
+  collectModuleRefs(refs, sourceView, /\bexport\s+[^'";]*?\s+from\s*["']([^"']+)["']/g, 'export');
+  collectModuleRefs(refs, sourceView, /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g, 'dynamic-import');
+  collectCallRefs(refs, sourceView.callSource);
 
   return uniqueRefs(refs);
 }
 
-function collectModuleRefs(refs, source, pattern, kind) {
-  for (const match of source.matchAll(pattern)) {
+function collectModuleRefs(refs, sourceView, pattern, kind) {
+  for (const match of sourceView.moduleSource.matchAll(pattern)) {
+    if (!isExecutableCodeAt(sourceView, match.index)) continue;
     refs.push({ kind, target: match[1] });
   }
 }
@@ -213,9 +247,10 @@ function collectCallRefs(refs, source) {
 }
 
 function extractTags(content) {
+  const sourceView = makeSourceView(content);
   const tags = [];
   const pattern = /\/\/\s*@tags:\s*(.+)$/gm;
-  for (const match of content.matchAll(pattern)) {
+  for (const match of sourceView.lineCommentSource.matchAll(pattern)) {
     for (const tag of match[1].split(/[,\s]+/)) {
       const trimmed = tag.trim();
       if (trimmed) tags.push(trimmed);
@@ -236,73 +271,141 @@ function uniqueRefs(refs) {
   return out;
 }
 
-function stripComments(source, opts = {}) {
-  const preservePlainStrings = opts.preservePlainStrings !== false;
-  let out = '';
-  let inString = false;
-  let stringChar = null;
-  let escape = false;
-  let inLineComment = false;
-  let inBlockComment = false;
+function isExecutableCodeAt(sourceView, index) {
+  return sourceView.callSource[index] === sourceView.moduleSource[index];
+}
+
+function makeSourceView(source) {
+  const moduleChars = [];
+  const callChars = [];
+  const commentChars = [];
+  const stack = [{ mode: 'code' }];
 
   for (let i = 0; i < source.length; i++) {
     const c = source[i];
     const next = source[i + 1];
+    const ctx = stack.at(-1);
 
-    if (inLineComment) {
-      out += c === '\n' ? '\n' : ' ';
-      if (c === '\n') inLineComment = false;
+    if (ctx.mode === 'lineComment') {
+      emitLineComment(moduleChars, callChars, commentChars, c);
+      if (c === '\n') stack.pop();
       continue;
     }
-    if (inBlockComment) {
-      out += c === '\n' ? '\n' : ' ';
+
+    if (ctx.mode === 'blockComment') {
+      emitMasked(moduleChars, callChars, commentChars, c);
       if (c === '*' && next === '/') {
-        out += ' ';
         i++;
-        inBlockComment = false;
+        emitMasked(moduleChars, callChars, commentChars, next);
+        stack.pop();
       }
       continue;
     }
-    if (escape) {
-      out += stringMaskChar(c, stringChar, preservePlainStrings);
-      escape = false;
+
+    if (ctx.mode === 'string') {
+      emitString(moduleChars, callChars, commentChars, c);
+      if (ctx.escape) {
+        ctx.escape = false;
+      } else if (c === '\\') {
+        ctx.escape = true;
+      } else if (c === ctx.quote) {
+        stack.pop();
+      }
       continue;
     }
-    if (inString) {
-      out += stringMaskChar(c, stringChar, preservePlainStrings);
-      if (c === '\\') {
-        escape = true;
-      } else if (c === stringChar) {
-        inString = false;
+
+    if (ctx.mode === 'templateText') {
+      emitTemplateText(moduleChars, callChars, commentChars, c);
+      if (ctx.escape) {
+        ctx.escape = false;
+      } else if (c === '\\') {
+        ctx.escape = true;
+      } else if (c === '`') {
+        stack.pop();
+      } else if (c === '$' && next === '{') {
+        i++;
+        emitTemplateText(moduleChars, callChars, commentChars, next);
+        stack.push({ mode: 'templateExpr', braceDepth: 1 });
       }
+      continue;
+    }
+
+    if (ctx.mode === 'templateExpr' && c === '}') {
+      emitCode(moduleChars, callChars, commentChars, c);
+      ctx.braceDepth--;
+      if (ctx.braceDepth === 0) stack.pop();
       continue;
     }
 
     if (c === '/' && next === '/') {
-      out += '  ';
+      emitLineComment(moduleChars, callChars, commentChars, c);
       i++;
-      inLineComment = true;
+      emitLineComment(moduleChars, callChars, commentChars, next);
+      stack.push({ mode: 'lineComment' });
       continue;
     }
     if (c === '/' && next === '*') {
-      out += '  ';
+      emitMasked(moduleChars, callChars, commentChars, c);
       i++;
-      inBlockComment = true;
+      emitMasked(moduleChars, callChars, commentChars, next);
+      stack.push({ mode: 'blockComment' });
       continue;
     }
-    if (c === '"' || c === "'" || c === '`') {
-      inString = true;
-      stringChar = c;
-      out += stringMaskChar(c, stringChar, preservePlainStrings);
+    if (c === '"' || c === "'") {
+      emitString(moduleChars, callChars, commentChars, c);
+      stack.push({ mode: 'string', quote: c, escape: false });
       continue;
     }
-    out += c;
+    if (c === '`') {
+      emitTemplateText(moduleChars, callChars, commentChars, c);
+      stack.push({ mode: 'templateText', escape: false });
+      continue;
+    }
+    if (ctx.mode === 'templateExpr' && c === '{') {
+      ctx.braceDepth++;
+    }
+    emitCode(moduleChars, callChars, commentChars, c);
   }
-  return out;
+
+  return {
+    moduleSource: moduleChars.join(''),
+    callSource: callChars.join(''),
+    lineCommentSource: commentChars.join(''),
+  };
 }
 
-function stringMaskChar(c, stringChar, preservePlainStrings) {
-  if (preservePlainStrings || stringChar === '`') return c;
+function emitCode(moduleChars, callChars, commentChars, c) {
+  moduleChars.push(c);
+  callChars.push(c);
+  commentChars.push(maskChar(c));
+}
+
+function emitString(moduleChars, callChars, commentChars, c) {
+  moduleChars.push(c);
+  callChars.push(maskChar(c));
+  commentChars.push(maskChar(c));
+}
+
+function emitTemplateText(moduleChars, callChars, commentChars, c) {
+  moduleChars.push(c);
+  callChars.push(maskChar(c));
+  commentChars.push(maskChar(c));
+}
+
+function emitLineComment(moduleChars, callChars, commentChars, c) {
+  moduleChars.push(maskChar(c));
+  callChars.push(maskChar(c));
+  commentChars.push(c);
+}
+
+function emitMasked(moduleChars, callChars, commentChars, c) {
+  const masked = maskChar(c);
+  moduleChars.push(masked);
+  callChars.push(masked);
+  commentChars.push(masked);
+}
+
+function maskChar(c) {
   return c === '\n' ? '\n' : ' ';
 }
 
