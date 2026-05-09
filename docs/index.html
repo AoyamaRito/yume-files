@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en" data-lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,6 +22,10 @@
       --white: #fffdf8;
       --shadow: 0 18px 44px rgba(23, 21, 17, 0.12);
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    [data-lang="jp"] {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
     }
 
     * {
@@ -66,6 +70,12 @@
       backdrop-filter: blur(14px);
     }
 
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
     .brand {
       display: inline-flex;
       align-items: center;
@@ -100,6 +110,40 @@
       color: var(--ink);
     }
 
+    .lang-toggle {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .lang-toggle button {
+      padding: 6px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+    }
+
+    .lang-toggle button + button {
+      border-left: 1px solid var(--line);
+    }
+
+    .lang-toggle button.active {
+      background: var(--ink);
+      color: var(--white);
+    }
+
+    .lang-toggle button:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
+    }
+
     .hero {
       position: relative;
       min-height: 82vh;
@@ -107,7 +151,9 @@
       display: grid;
       align-items: center;
       padding: 76px 32px 84px;
-      background: var(--paper);
+      background:
+        radial-gradient(ellipse 70% 60% at 50% 50%, rgba(248, 245, 237, 0.95) 0%, rgba(248, 245, 237, 0.45) 55%, rgba(248, 245, 237, 0) 80%),
+        var(--paper);
       border-bottom: 1px solid var(--line);
     }
 
@@ -115,7 +161,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      opacity: 0.72;
+      opacity: 0.42;
     }
 
     .artifact-field pre,
@@ -139,14 +185,14 @@
     }
 
     .artifact-field .code-a {
-      right: 5%;
-      top: 10%;
+      right: 3%;
+      top: 6%;
       transform: rotate(2deg);
     }
 
     .artifact-field .code-b {
-      left: 4%;
-      bottom: 9%;
+      left: 3%;
+      bottom: 6%;
       transform: rotate(-2deg);
     }
 
@@ -160,29 +206,35 @@
     }
 
     .artifact-field .world {
-      right: 34%;
-      top: 20%;
+      right: 36%;
+      top: 14%;
       color: var(--teal);
     }
 
     .artifact-field .chapter {
-      right: 20%;
-      top: 42%;
+      left: 36%;
+      bottom: 16%;
       color: var(--rust);
     }
 
     .artifact-field .style {
-      right: 42%;
-      top: 53%;
+      left: 6%;
+      top: 18%;
       color: var(--blue);
     }
 
     .hero-copy {
       position: relative;
       z-index: 2;
-      width: min(980px, 100%);
+      width: min(900px, 100%);
       margin: 0 auto;
-      padding: 36px 0;
+      padding: 44px 48px 48px;
+      background: rgba(248, 245, 237, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(215, 204, 186, 0.7);
+      border-radius: 14px;
+      box-shadow: 0 12px 36px rgba(23, 21, 17, 0.08);
     }
 
     .eyebrow {
@@ -201,11 +253,31 @@
       letter-spacing: 0;
     }
 
+    [data-lang="jp"] h1 {
+      font-size: 3.6rem;
+      line-height: 1.18;
+    }
+
+    .yume-meaning {
+      margin: 26px 0 0;
+      padding: 14px 18px;
+      border-left: 3px solid var(--rust);
+      background: rgba(154, 74, 47, 0.07);
+      color: var(--ink);
+      font-size: 1.02rem;
+      line-height: 1.55;
+    }
+
+    .yume-meaning strong {
+      color: var(--rust);
+      letter-spacing: 0.04em;
+    }
+
     .hero-copy .lead {
       max-width: 720px;
-      margin: 28px 0 0;
+      margin: 22px 0 0;
       color: #352f28;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
     }
 
     .hero-actions {
@@ -268,6 +340,11 @@
       font-size: 2.65rem;
       line-height: 1.08;
       letter-spacing: 0;
+    }
+
+    [data-lang="jp"] h2 {
+      font-size: 2.05rem;
+      line-height: 1.3;
     }
 
     h3 {
@@ -546,6 +623,10 @@
         padding: 18px 20px;
       }
 
+      .topbar-right {
+        flex-wrap: wrap;
+      }
+
       .topbar nav {
         flex-wrap: wrap;
       }
@@ -553,6 +634,10 @@
       .hero {
         min-height: 78vh;
         padding: 52px 20px 64px;
+      }
+
+      .hero-copy {
+        padding: 32px 24px 36px;
       }
 
       .artifact-field pre {
@@ -577,8 +662,16 @@
         font-size: 3.25rem;
       }
 
+      [data-lang="jp"] h1 {
+        font-size: 2.4rem;
+      }
+
       h2 {
         font-size: 2rem;
+      }
+
+      [data-lang="jp"] h2 {
+        font-size: 1.6rem;
       }
 
       .section {
@@ -620,13 +713,19 @@
       <span class="brand-mark">Y</span>
       <span>yume-files</span>
     </a>
-    <nav>
-      <a href="#format">Format</a>
-      <a href="#workflow">Workflow</a>
-      <a href="#fiction">Fiction</a>
-      <a href="#commands">Commands</a>
-      <a href="https://github.com/AoyamaRito/yume-files">GitHub</a>
-    </nav>
+    <div class="topbar-right">
+      <nav>
+        <a href="#format" data-i18n="nav.format">Format</a>
+        <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
+        <a href="#fiction" data-i18n="nav.fiction">Fiction</a>
+        <a href="#commands" data-i18n="nav.commands">Commands</a>
+        <a href="https://github.com/AoyamaRito/yume-files">GitHub</a>
+      </nav>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" data-lang="en" class="active">EN</button>
+        <button type="button" data-lang="jp">JP</button>
+      </div>
+    </div>
   </header>
 
   <main id="top">
@@ -656,15 +755,16 @@ export const chapterOne = `
         <div class="node style">style guide</div>
       </div>
       <div class="hero-copy">
-        <p class="eyebrow">AI foundation file format</p>
-        <h1 id="hero-title">.yume.js keeps context small, traceable, and useful.</h1>
-        <p class="lead">
+        <p class="eyebrow" data-i18n="hero.eyebrow">AI foundation file format</p>
+        <h1 id="hero-title" data-i18n="hero.title">.yume.js keeps context small, traceable, and useful.</h1>
+        <p class="yume-meaning" data-i18n-html="hero.yume"><strong>YUME</strong> means 夢 — a creator's dream, made tangible.</p>
+        <p class="lead" data-i18n="hero.lead">
           yume-files is a zero-dependency reference implementation for AI-facing files.
           It puts current content, history, refs, notes, impact analysis, and runtime pinning into one portable JavaScript file.
         </p>
         <div class="hero-actions" aria-label="Primary links">
-          <a class="button" href="https://github.com/AoyamaRito/yume-files">View on GitHub</a>
-          <a class="button secondary" href="#commands">Try the commands</a>
+          <a class="button" href="https://github.com/AoyamaRito/yume-files" data-i18n="hero.cta1">View on GitHub</a>
+          <a class="button secondary" href="#commands" data-i18n="hero.cta2">Try the commands</a>
         </div>
       </div>
     </section>
@@ -672,11 +772,11 @@ export const chapterOne = `
     <section class="section" aria-labelledby="why-title">
       <div class="wrap split">
         <div>
-          <p class="eyebrow">Why</p>
-          <h2 id="why-title">AI output improves when the context boundary is clear.</h2>
+          <p class="eyebrow" data-i18n="why.eyebrow">Why</p>
+          <h2 id="why-title" data-i18n="why.title">AI output improves when the context boundary is clear.</h2>
         </div>
         <div>
-          <p class="section-lead">
+          <p class="section-lead" data-i18n="why.lead">
             Large context is not automatically good context. AI work often mixes stale notes, old drafts, unrelated specs, and repository-wide history.
             `.yume.js` aims to hand the model only the Block it needs, plus the refs and reasons that matter.
           </p>
@@ -685,18 +785,18 @@ export const chapterOne = `
       <div class="wrap proof-grid">
         <article class="card">
           <span class="metric">1</span>
-          <h3>One file as a durable unit</h3>
-          <p>Current content, append-only versions, mutable notes, and runtime selection live together.</p>
+          <h3 data-i18n="why.card1.title">One file as a durable unit</h3>
+          <p data-i18n="why.card1.body">Current content, append-only versions, mutable notes, and runtime selection live together.</p>
         </article>
         <article class="card">
           <span class="metric">↔</span>
-          <h3>Refs define the reading path</h3>
-          <p>Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.</p>
+          <h3 data-i18n="why.card2.title">Refs define the reading path</h3>
+          <p data-i18n="why.card2.body">Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.</p>
         </article>
         <article class="card">
           <span class="metric">↓</span>
-          <h3>Less token waste</h3>
-          <p>Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.</p>
+          <h3 data-i18n="why.card3.title">Less token waste</h3>
+          <p data-i18n="why.card3.body">Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.</p>
         </article>
       </div>
     </section>
@@ -704,14 +804,14 @@ export const chapterOne = `
     <section id="format" class="section band" aria-labelledby="format-title">
       <div class="wrap split">
         <div>
-          <p class="eyebrow">Format</p>
-          <h2 id="format-title">A `.yume.js` file is normal JavaScript with an embedded history substrate.</h2>
-          <p class="section-lead">
+          <p class="eyebrow" data-i18n="format.eyebrow">Format</p>
+          <h2 id="format-title" data-i18n="format.title">A `.yume.js` file is normal JavaScript with an embedded history substrate.</h2>
+          <p class="section-lead" data-i18n="format.lead">
             The file remains readable with a JS parser. The runtime does not need a database, server, AST package, or sidecar store.
           </p>
         </div>
         <div class="code-panel" aria-label="Small yume.js source example">
-          <div class="code-title"><span>minimal shape</span><span>zero dependency</span></div>
+          <div class="code-title"><span data-i18n="format.code.left">minimal shape</span><span data-i18n="format.code.right">zero dependency</span></div>
           <pre><code><span class="accent">// @yume-format: 1</span>
 export const __block = {
   "id": "chapterOne",
@@ -736,48 +836,48 @@ export const chapterOne = "...";
 
     <section id="workflow" class="section" aria-labelledby="workflow-title">
       <div class="wrap">
-        <p class="eyebrow">Workflow</p>
-        <h2 id="workflow-title">Expand only what matters. Apply only what changed.</h2>
-        <p class="section-lead">
+        <p class="eyebrow" data-i18n="workflow.eyebrow">Workflow</p>
+        <h2 id="workflow-title" data-i18n="workflow.title">Expand only what matters. Apply only what changed.</h2>
+        <p class="section-lead" data-i18n="workflow.lead">
           `heavy` creates an AI-editable view from a root Block and its dependencies. `heavy-apply` writes the edited view back and appends new versions only where content changed.
         </p>
         <div class="diagram" aria-label="heavy and heavy-apply workflow">
           <div class="diagram-row">
             <div class="diagram-cell">
-              <span class="label">Compressed</span>
-              <h3>.yume.js files</h3>
-              <p>Small, local, durable files with version history and refs.</p>
+              <span class="label" data-i18n="workflow.diag1.label">Compressed</span>
+              <h3 data-i18n="workflow.diag1.title">.yume.js files</h3>
+              <p data-i18n="workflow.diag1.body">Small, local, durable files with version history and refs.</p>
             </div>
             <div class="arrow" aria-hidden="true">→</div>
             <div class="diagram-cell">
-              <span class="label">Decompress</span>
-              <h3>heavy view</h3>
-              <p>Root plus resolved context for AI editing.</p>
+              <span class="label" data-i18n="workflow.diag2.label">Decompress</span>
+              <h3 data-i18n="workflow.diag2.title">heavy view</h3>
+              <p data-i18n="workflow.diag2.body">Root plus resolved context for AI editing.</p>
             </div>
             <div class="arrow" aria-hidden="true">→</div>
             <div class="diagram-cell">
-              <span class="label">Recompress</span>
-              <h3>version append</h3>
-              <p>Changed files get new versions and shared applyId.</p>
+              <span class="label" data-i18n="workflow.diag3.label">Recompress</span>
+              <h3 data-i18n="workflow.diag3.title">version append</h3>
+              <p data-i18n="workflow.diag3.body">Changed files get new versions and shared applyId.</p>
             </div>
           </div>
         </div>
         <div class="feature-grid">
           <article class="card">
-            <h3>impact</h3>
-            <p>Walk reverse refs to see which files depend on a Block before changing it.</p>
+            <h3 data-i18n="workflow.feat1.title">impact</h3>
+            <p data-i18n="workflow.feat1.body">Walk reverse refs to see which files depend on a Block before changing it.</p>
           </article>
           <article class="card">
-            <h3>refs-check</h3>
-            <p>Validate the graph: dangling paths, duplicate ids, cycles, isolated files, and invalid Blocks.</p>
+            <h3 data-i18n="workflow.feat2.title">refs-check</h3>
+            <p data-i18n="workflow.feat2.body">Validate the graph: dangling paths, duplicate ids, cycles, isolated files, and invalid Blocks.</p>
           </article>
           <article class="card">
-            <h3>notes</h3>
-            <p>Add or correct intent after the edit without changing the version hash.</p>
+            <h3 data-i18n="workflow.feat3.title">notes</h3>
+            <p data-i18n="workflow.feat3.body">Add or correct intent after the edit without changing the version hash.</p>
           </article>
           <article class="card">
-            <h3>runtime pinning</h3>
-            <p>Each file declares the runtime version it expects, so older files can stay readable.</p>
+            <h3 data-i18n="workflow.feat4.title">runtime pinning</h3>
+            <p data-i18n="workflow.feat4.body">Each file declares the runtime version it expects, so older files can stay readable.</p>
           </article>
         </div>
       </div>
@@ -785,34 +885,34 @@ export const chapterOne = "...";
 
     <section id="fiction" class="section dark" aria-labelledby="fiction-title">
       <div class="wrap">
-        <p class="eyebrow">Fiction Writing</p>
-        <h2 id="fiction-title">A long novel can become a graph of small, stable creative files.</h2>
-        <p class="section-lead">
+        <p class="eyebrow" data-i18n="fiction.eyebrow">Fiction Writing</p>
+        <h2 id="fiction-title" data-i18n="fiction.title">A long novel can become a graph of small, stable creative files.</h2>
+        <p class="section-lead" data-i18n="fiction.lead">
           World, characters, plot rules, style, and chapters can each be a Block. The model reads the few Blocks that matter instead of the whole project.
         </p>
         <div class="story-map">
           <div class="map-list">
             <div class="map-item">
               <strong>novel.world.yume.js</strong>
-              <span>World rules, history, geography, constraints.</span>
+              <span data-i18n="fiction.map1.body">World rules, history, geography, constraints.</span>
             </div>
             <div class="map-item">
               <strong>mira.character.yume.js</strong>
-              <span>Voice, motives, secrets, relationship state.</span>
+              <span data-i18n="fiction.map2.body">Voice, motives, secrets, relationship state.</span>
             </div>
             <div class="map-item">
               <strong>style.guide.yume.js</strong>
-              <span>Sentence rhythm, forbidden phrases, tone.</span>
+              <span data-i18n="fiction.map3.body">Sentence rhythm, forbidden phrases, tone.</span>
             </div>
             <div class="map-item">
               <strong>chapter-07.draft.yume.js</strong>
-              <span>Draft text with explicit refs to world, character, and style.</span>
+              <span data-i18n="fiction.map4.body">Draft text with explicit refs to world, character, and style.</span>
             </div>
           </div>
           <aside class="impact-box">
-            <h3>Change a rule, then ask what moves.</h3>
-            <p><code>impact novelWorld 2 .</code> shows the chapters, style files, or workflows that reference the world Block.</p>
-            <p><code>refs-check .</code> catches broken links before the AI writes from stale assumptions.</p>
+            <h3 data-i18n="fiction.impact.title">Change a rule, then ask what moves.</h3>
+            <p data-i18n-html="fiction.impact.body1"><code>impact novelWorld 2 .</code> shows the chapters, style files, or workflows that reference the world Block.</p>
+            <p data-i18n-html="fiction.impact.body2"><code>refs-check .</code> catches broken links before the AI writes from stale assumptions.</p>
           </aside>
         </div>
       </div>
@@ -820,32 +920,32 @@ export const chapterOne = "...";
 
     <section class="section band" aria-labelledby="uses-title">
       <div class="wrap">
-        <p class="eyebrow">Use Cases</p>
-        <h2 id="uses-title">Not only code. Any AI-facing context can become a foundation file.</h2>
+        <p class="eyebrow" data-i18n="uses.eyebrow">Use Cases</p>
+        <h2 id="uses-title" data-i18n="uses.title">Not only code. Any AI-facing context can become a foundation file.</h2>
         <div class="use-grid">
           <article class="card">
-            <h3>Specs</h3>
-            <p>Keep requirements, decisions, refs, and revision history next to the source of truth.</p>
+            <h3 data-i18n="uses.card1.title">Specs</h3>
+            <p data-i18n="uses.card1.body">Keep requirements, decisions, refs, and revision history next to the source of truth.</p>
           </article>
           <article class="card">
-            <h3>Workflows</h3>
-            <p>Store repeatable procedures, review rules, templates, and operation notes as one file.</p>
+            <h3 data-i18n="uses.card2.title">Workflows</h3>
+            <p data-i18n="uses.card2.body">Store repeatable procedures, review rules, templates, and operation notes as one file.</p>
           </article>
           <article class="card">
-            <h3>Creative Worlds</h3>
-            <p>Track worldbuilding, character logic, chapter drafts, and style constraints with impact.</p>
+            <h3 data-i18n="uses.card3.title">Creative Worlds</h3>
+            <p data-i18n="uses.card3.body">Track worldbuilding, character logic, chapter drafts, and style constraints with impact.</p>
           </article>
           <article class="card">
-            <h3>Code Blocks</h3>
-            <p>Use JavaScript normally while preserving local history and AI operation grouping.</p>
+            <h3 data-i18n="uses.card4.title">Code Blocks</h3>
+            <p data-i18n="uses.card4.body">Use JavaScript normally while preserving local history and AI operation grouping.</p>
           </article>
           <article class="card">
-            <h3>Agent Memory</h3>
-            <p>Keep local rules and stable context in a portable file, not an opaque service store.</p>
+            <h3 data-i18n="uses.card5.title">Agent Memory</h3>
+            <p data-i18n="uses.card5.body">Keep local rules and stable context in a portable file, not an opaque service store.</p>
           </article>
           <article class="card">
-            <h3>Documentation</h3>
-            <p>Bind generated docs to the templates, workflows, and decisions that shaped them.</p>
+            <h3 data-i18n="uses.card6.title">Documentation</h3>
+            <p data-i18n="uses.card6.body">Bind generated docs to the templates, workflows, and decisions that shaped them.</p>
           </article>
         </div>
       </div>
@@ -853,31 +953,31 @@ export const chapterOne = "...";
 
     <section class="section" aria-labelledby="principles-title">
       <div class="narrow">
-        <p class="eyebrow">Principles</p>
-        <h2 id="principles-title">Stable substrate, evolving runtime.</h2>
+        <p class="eyebrow" data-i18n="principles.eyebrow">Principles</p>
+        <h2 id="principles-title" data-i18n="principles.title">Stable substrate, evolving runtime.</h2>
         <div class="steps">
           <div class="step">
             <div>
-              <h3>Keep the physical format boring.</h3>
-              <p>It is a JavaScript file with a clear header, canonical JSON Block data, HEAD, and BOOT regions.</p>
+              <h3 data-i18n="principles.step1.title">Keep the physical format boring.</h3>
+              <p data-i18n="principles.step1.body">It is a JavaScript file with a clear header, canonical JSON Block data, HEAD, and BOOT regions.</p>
             </div>
           </div>
           <div class="step">
             <div>
-              <h3>Keep history append-only.</h3>
-              <p>Content versions are immutable. Explanations live in mutable notes so intent can be corrected later.</p>
+              <h3 data-i18n="principles.step2.title">Keep history append-only.</h3>
+              <p data-i18n="principles.step2.body">Content versions are immutable. Explanations live in mutable notes so intent can be corrected later.</p>
             </div>
           </div>
           <div class="step">
             <div>
-              <h3>Keep the runtime local and zero-dep.</h3>
-              <p>The v001 scanner avoids AST package dependencies and favors portable folder movement.</p>
+              <h3 data-i18n="principles.step3.title">Keep the runtime local and zero-dep.</h3>
+              <p data-i18n="principles.step3.body">The v001 scanner avoids AST package dependencies and favors portable folder movement.</p>
             </div>
           </div>
           <div class="step">
             <div>
-              <h3>Keep AI context narrow.</h3>
-              <p>Use refs, heavy, impact, and refs-check to send the model the smallest useful slice.</p>
+              <h3 data-i18n="principles.step4.title">Keep AI context narrow.</h3>
+              <p data-i18n="principles.step4.body">Use refs, heavy, impact, and refs-check to send the model the smallest useful slice.</p>
             </div>
           </div>
         </div>
@@ -886,34 +986,34 @@ export const chapterOne = "...";
 
     <section id="commands" class="section dark" aria-labelledby="commands-title">
       <div class="wrap">
-        <p class="eyebrow">Commands</p>
-        <h2 id="commands-title">Try the reference runtime.</h2>
-        <p class="section-lead">Node.js 20 or newer is enough. The runtime ships in this repository.</p>
+        <p class="eyebrow" data-i18n="commands.eyebrow">Commands</p>
+        <h2 id="commands-title" data-i18n="commands.title">Try the reference runtime.</h2>
+        <p class="section-lead" data-i18n="commands.lead">Node.js 20 or newer is enough. The runtime ships in this repository.</p>
         <div class="command-grid">
           <div class="command">
-            <p>Run the full e2e suite</p>
+            <p data-i18n="commands.cmd1.label">Run the full e2e suite</p>
             <pre><code>npm test</code></pre>
           </div>
           <div class="command">
-            <p>Show history and current content</p>
+            <p data-i18n="commands.cmd2.label">Show history and current content</p>
             <pre><code>node examples/hello.fn.yume.js history
 node examples/hello.fn.yume.js show head</code></pre>
           </div>
           <div class="command">
-            <p>Expand context for AI editing</p>
+            <p data-i18n="commands.cmd3.label">Expand context for AI editing</p>
             <pre><code>node examples/hello.fn.yume.js heavy hello 1 .</code></pre>
           </div>
           <div class="command">
-            <p>Apply an edited heavy view</p>
+            <p data-i18n="commands.cmd4.label">Apply an edited heavy view</p>
             <pre><code>node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . \
   --note "AI edited view"</code></pre>
           </div>
           <div class="command">
-            <p>Check reverse impact</p>
+            <p data-i18n="commands.cmd5.label">Check reverse impact</p>
             <pre><code>node examples/hello.fn.yume.js impact hello 1 .</code></pre>
           </div>
           <div class="command">
-            <p>Validate the refs graph</p>
+            <p data-i18n="commands.cmd6.label">Validate the refs graph</p>
             <pre><code>node examples/hello.fn.yume.js refs-check .
 node examples/hello.fn.yume.js refs-check . --json</code></pre>
           </div>
@@ -923,15 +1023,15 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
 
     <section class="section" aria-labelledby="final-title">
       <div class="narrow">
-        <p class="eyebrow">Status</p>
-        <h2 id="final-title">Small enough to inspect. Strong enough to build on.</h2>
-        <p class="section-lead">
+        <p class="eyebrow" data-i18n="final.eyebrow">Status</p>
+        <h2 id="final-title" data-i18n="final.title">Small enough to inspect. Strong enough to build on.</h2>
+        <p class="section-lead" data-i18n="final.lead">
           yume-files is intentionally conservative: one format, one v001 runtime, zero dependencies, and focused e2e coverage.
           The next phase is real-world use: novels, specs, workflows, templates, and codebases.
         </p>
         <div class="hero-actions">
-          <a class="button" href="https://github.com/AoyamaRito/yume-files">Open the repository</a>
-          <a class="button secondary" href="https://github.com/AoyamaRito/yume-files/blob/main/BLOCKFILE.aiDoc.yume.js">Read the aiDoc spec</a>
+          <a class="button" href="https://github.com/AoyamaRito/yume-files" data-i18n="final.cta1">Open the repository</a>
+          <a class="button secondary" href="https://github.com/AoyamaRito/yume-files/blob/main/BLOCKFILE.aiDoc.yume.js" data-i18n="final.cta2">Read the aiDoc spec</a>
         </div>
       </div>
     </section>
@@ -939,9 +1039,238 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
 
   <footer class="footer">
     <div class="wrap">
-      <span>MIT License · yume-files</span>
-      <span>.yume.js foundation file format for AI work</span>
+      <span data-i18n="footer.left">MIT License · yume-files</span>
+      <span data-i18n="footer.right">.yume.js foundation file format for AI work</span>
     </div>
   </footer>
+
+  <script>
+    const i18n = {
+      en: {
+        "nav.format": "Format",
+        "nav.workflow": "Workflow",
+        "nav.fiction": "Fiction",
+        "nav.commands": "Commands",
+        "hero.eyebrow": "AI foundation file format",
+        "hero.title": ".yume.js keeps context small, traceable, and useful.",
+        "hero.yume": "<strong>YUME</strong> means 夢 — a creator's dream, made tangible.",
+        "hero.lead": "yume-files is a zero-dependency reference implementation for AI-facing files. It puts current content, history, refs, notes, impact analysis, and runtime pinning into one portable JavaScript file.",
+        "hero.cta1": "View on GitHub",
+        "hero.cta2": "Try the commands",
+        "why.eyebrow": "Why",
+        "why.title": "AI output improves when the context boundary is clear.",
+        "why.lead": "Large context is not automatically good context. AI work often mixes stale notes, old drafts, unrelated specs, and repository-wide history. `.yume.js` aims to hand the model only the Block it needs, plus the refs and reasons that matter.",
+        "why.card1.title": "One file as a durable unit",
+        "why.card1.body": "Current content, append-only versions, mutable notes, and runtime selection live together.",
+        "why.card2.title": "Refs define the reading path",
+        "why.card2.body": "Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.",
+        "why.card3.title": "Less token waste",
+        "why.card3.body": "Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.",
+        "format.eyebrow": "Format",
+        "format.title": "A `.yume.js` file is normal JavaScript with an embedded history substrate.",
+        "format.lead": "The file remains readable with a JS parser. The runtime does not need a database, server, AST package, or sidecar store.",
+        "format.code.left": "minimal shape",
+        "format.code.right": "zero dependency",
+        "workflow.eyebrow": "Workflow",
+        "workflow.title": "Expand only what matters. Apply only what changed.",
+        "workflow.lead": "`heavy` creates an AI-editable view from a root Block and its dependencies. `heavy-apply` writes the edited view back and appends new versions only where content changed.",
+        "workflow.diag1.label": "Compressed",
+        "workflow.diag1.title": ".yume.js files",
+        "workflow.diag1.body": "Small, local, durable files with version history and refs.",
+        "workflow.diag2.label": "Decompress",
+        "workflow.diag2.title": "heavy view",
+        "workflow.diag2.body": "Root plus resolved context for AI editing.",
+        "workflow.diag3.label": "Recompress",
+        "workflow.diag3.title": "version append",
+        "workflow.diag3.body": "Changed files get new versions and shared applyId.",
+        "workflow.feat1.title": "impact",
+        "workflow.feat1.body": "Walk reverse refs to see which files depend on a Block before changing it.",
+        "workflow.feat2.title": "refs-check",
+        "workflow.feat2.body": "Validate the graph: dangling paths, duplicate ids, cycles, isolated files, and invalid Blocks.",
+        "workflow.feat3.title": "notes",
+        "workflow.feat3.body": "Add or correct intent after the edit without changing the version hash.",
+        "workflow.feat4.title": "runtime pinning",
+        "workflow.feat4.body": "Each file declares the runtime version it expects, so older files can stay readable.",
+        "fiction.eyebrow": "Fiction Writing",
+        "fiction.title": "A long novel can become a graph of small, stable creative files.",
+        "fiction.lead": "World, characters, plot rules, style, and chapters can each be a Block. The model reads the few Blocks that matter instead of the whole project.",
+        "fiction.map1.body": "World rules, history, geography, constraints.",
+        "fiction.map2.body": "Voice, motives, secrets, relationship state.",
+        "fiction.map3.body": "Sentence rhythm, forbidden phrases, tone.",
+        "fiction.map4.body": "Draft text with explicit refs to world, character, and style.",
+        "fiction.impact.title": "Change a rule, then ask what moves.",
+        "fiction.impact.body1": "<code>impact novelWorld 2 .</code> shows the chapters, style files, or workflows that reference the world Block.",
+        "fiction.impact.body2": "<code>refs-check .</code> catches broken links before the AI writes from stale assumptions.",
+        "uses.eyebrow": "Use Cases",
+        "uses.title": "Not only code. Any AI-facing context can become a foundation file.",
+        "uses.card1.title": "Specs",
+        "uses.card1.body": "Keep requirements, decisions, refs, and revision history next to the source of truth.",
+        "uses.card2.title": "Workflows",
+        "uses.card2.body": "Store repeatable procedures, review rules, templates, and operation notes as one file.",
+        "uses.card3.title": "Creative Worlds",
+        "uses.card3.body": "Track worldbuilding, character logic, chapter drafts, and style constraints with impact.",
+        "uses.card4.title": "Code Blocks",
+        "uses.card4.body": "Use JavaScript normally while preserving local history and AI operation grouping.",
+        "uses.card5.title": "Agent Memory",
+        "uses.card5.body": "Keep local rules and stable context in a portable file, not an opaque service store.",
+        "uses.card6.title": "Documentation",
+        "uses.card6.body": "Bind generated docs to the templates, workflows, and decisions that shaped them.",
+        "principles.eyebrow": "Principles",
+        "principles.title": "Stable substrate, evolving runtime.",
+        "principles.step1.title": "Keep the physical format boring.",
+        "principles.step1.body": "It is a JavaScript file with a clear header, canonical JSON Block data, HEAD, and BOOT regions.",
+        "principles.step2.title": "Keep history append-only.",
+        "principles.step2.body": "Content versions are immutable. Explanations live in mutable notes so intent can be corrected later.",
+        "principles.step3.title": "Keep the runtime local and zero-dep.",
+        "principles.step3.body": "The v001 scanner avoids AST package dependencies and favors portable folder movement.",
+        "principles.step4.title": "Keep AI context narrow.",
+        "principles.step4.body": "Use refs, heavy, impact, and refs-check to send the model the smallest useful slice.",
+        "commands.eyebrow": "Commands",
+        "commands.title": "Try the reference runtime.",
+        "commands.lead": "Node.js 20 or newer is enough. The runtime ships in this repository.",
+        "commands.cmd1.label": "Run the full e2e suite",
+        "commands.cmd2.label": "Show history and current content",
+        "commands.cmd3.label": "Expand context for AI editing",
+        "commands.cmd4.label": "Apply an edited heavy view",
+        "commands.cmd5.label": "Check reverse impact",
+        "commands.cmd6.label": "Validate the refs graph",
+        "final.eyebrow": "Status",
+        "final.title": "Small enough to inspect. Strong enough to build on.",
+        "final.lead": "yume-files is intentionally conservative: one format, one v001 runtime, zero dependencies, and focused e2e coverage. The next phase is real-world use: novels, specs, workflows, templates, and codebases.",
+        "final.cta1": "Open the repository",
+        "final.cta2": "Read the aiDoc spec",
+        "footer.left": "MIT License · yume-files",
+        "footer.right": ".yume.js foundation file format for AI work"
+      },
+      jp: {
+        "nav.format": "フォーマット",
+        "nav.workflow": "ワークフロー",
+        "nav.fiction": "創作",
+        "nav.commands": "コマンド",
+        "hero.eyebrow": "AI ファンデーション ファイル形式",
+        "hero.title": ".yume.js は AI 文脈を、小さく・追跡可能・有用に保つ。",
+        "hero.yume": "<strong>YUME</strong> = 夢 — クリエイターの夢を、形にしたもの。",
+        "hero.lead": "yume-files は AI 向けファイル形式のゼロ依存リファレンス実装です。現在のコンテンツ、履歴、参照、ノート、インパクト解析、ランタイム固定を、一つの可搬な JavaScript ファイルにまとめます。",
+        "hero.cta1": "GitHub で見る",
+        "hero.cta2": "コマンドを試す",
+        "why.eyebrow": "なぜ",
+        "why.title": "AI の出力は、文脈の境界が明確なほど良くなる。",
+        "why.lead": "大きな文脈が、必ずしも良い文脈とは限りません。AI 作業は古いノート・旧ドラフト・無関係な仕様・リポジトリ全体の履歴が混ざりがちです。`.yume.js` は、必要な Block と、意味のある参照・理由だけをモデルに渡すことを目指します。",
+        "why.card1.title": "永続単位としての一ファイル",
+        "why.card1.body": "現在のコンテンツ、追記専用バージョン、可変ノート、ランタイム選択が一つの場所に同居。",
+        "why.card2.title": "参照が読み順を定義する",
+        "why.card2.body": "import 参照、明示的な `// @ref:` 行、タグ、グラフ検査により、近傍の文脈が可視化されます。",
+        "why.card3.title": "トークンの浪費を抑える",
+        "why.card3.body": "`heavy` と `impact` を使い、無関係なファイルや雑多な履歴をモデルに送らない。",
+        "format.eyebrow": "フォーマット",
+        "format.title": "`.yume.js` は履歴サブストレートを内蔵した、ふつうの JavaScript。",
+        "format.lead": "ファイルは JS パーサで読めるままです。ランタイムにデータベース・サーバ・AST パッケージ・サイドカーストアは不要です。",
+        "format.code.left": "最小構成",
+        "format.code.right": "ゼロ依存",
+        "workflow.eyebrow": "ワークフロー",
+        "workflow.title": "必要なものだけ展開し、変わったものだけ反映する。",
+        "workflow.lead": "`heavy` はルート Block と依存から AI 編集用ビューを作ります。`heavy-apply` は編集後ビューを書き戻し、内容が変わったファイルにだけ新しいバージョンを追記します。",
+        "workflow.diag1.label": "圧縮",
+        "workflow.diag1.title": ".yume.js ファイル群",
+        "workflow.diag1.body": "小さく・ローカル・永続。バージョン履歴と参照を持つファイル。",
+        "workflow.diag2.label": "展開",
+        "workflow.diag2.title": "heavy ビュー",
+        "workflow.diag2.body": "AI 編集のためのルートと、解決済みの文脈。",
+        "workflow.diag3.label": "再圧縮",
+        "workflow.diag3.title": "バージョン追記",
+        "workflow.diag3.body": "変化したファイルだけが、新しいバージョンと共有 applyId を得る。",
+        "workflow.feat1.title": "impact",
+        "workflow.feat1.body": "逆参照を辿り、Block を変更する前に、どのファイルが依存しているかを確認する。",
+        "workflow.feat2.title": "refs-check",
+        "workflow.feat2.body": "グラフを検証: 切れたパス、重複 id、循環、孤立ファイル、不正な Block。",
+        "workflow.feat3.title": "notes",
+        "workflow.feat3.body": "編集後でも、バージョンハッシュを変えずに意図を補足・訂正できます。",
+        "workflow.feat4.title": "ランタイム固定",
+        "workflow.feat4.body": "各ファイルが期待するランタイムバージョンを宣言し、古いファイルも読める状態を保ちます。",
+        "fiction.eyebrow": "創作",
+        "fiction.title": "長い小説を、小さく安定した創作ファイルのグラフに。",
+        "fiction.lead": "世界観・キャラクタ・プロット規則・文体・章を、それぞれ Block にできます。モデルはプロジェクト全体ではなく、必要な Block だけを読みます。",
+        "fiction.map1.body": "世界の規則・歴史・地理・制約。",
+        "fiction.map2.body": "声、動機、秘密、関係性の状態。",
+        "fiction.map3.body": "文のリズム、禁則表現、トーン。",
+        "fiction.map4.body": "世界・キャラ・文体への明示参照を持つ章ドラフト。",
+        "fiction.impact.title": "規則を変えたとき、何が動くかを問う。",
+        "fiction.impact.body1": "<code>impact novelWorld 2 .</code> で、世界 Block を参照する章・文体ファイル・ワークフローが見えます。",
+        "fiction.impact.body2": "<code>refs-check .</code> で、AI が古い前提から書き出す前に、リンク切れを検知します。",
+        "uses.eyebrow": "ユースケース",
+        "uses.title": "コードだけではない。AI に渡すあらゆる文脈を、ファンデーションファイルに。",
+        "uses.card1.title": "仕様",
+        "uses.card1.body": "要件・決定・参照・改訂履歴を、真実の源の隣に置く。",
+        "uses.card2.title": "ワークフロー",
+        "uses.card2.body": "反復可能な手順、レビュー規則、テンプレート、運用ノートを一ファイルに。",
+        "uses.card3.title": "創作世界",
+        "uses.card3.body": "世界設定・キャラ論理・章ドラフト・文体制約を、インパクト付きで追跡する。",
+        "uses.card4.title": "コード Block",
+        "uses.card4.body": "通常の JavaScript として書きつつ、ローカル履歴と AI 操作のまとまりを保つ。",
+        "uses.card5.title": "エージェント記憶",
+        "uses.card5.body": "ローカル規則と安定文脈を、不透明な外部ストアではなく、可搬ファイルに置く。",
+        "uses.card6.title": "ドキュメント",
+        "uses.card6.body": "生成ドキュメントを、それを形作ったテンプレ・ワークフロー・決定に紐づける。",
+        "principles.eyebrow": "原則",
+        "principles.title": "安定したサブストレート、進化するランタイム。",
+        "principles.step1.title": "物理フォーマットは退屈に保つ。",
+        "principles.step1.body": "明確なヘッダ、正規化 JSON の Block データ、HEAD、BOOT 領域を持つ JavaScript ファイル。",
+        "principles.step2.title": "履歴は追記専用に保つ。",
+        "principles.step2.body": "コンテンツのバージョンは不可変。意図の説明は可変ノートに置き、後から訂正できるようにする。",
+        "principles.step3.title": "ランタイムはローカル・ゼロ依存に保つ。",
+        "principles.step3.body": "v001 スキャナは AST パッケージ依存を避け、ポータブルなフォルダ移動を優先します。",
+        "principles.step4.title": "AI 文脈は狭く保つ。",
+        "principles.step4.body": "refs・heavy・impact・refs-check を使い、最小で有用なスライスをモデルに渡します。",
+        "commands.eyebrow": "コマンド",
+        "commands.title": "リファレンスランタイムを試す。",
+        "commands.lead": "Node.js 20 以降があれば十分です。ランタイムはこのリポジトリに同梱されています。",
+        "commands.cmd1.label": "e2e フルスイートを実行",
+        "commands.cmd2.label": "履歴と現在のコンテンツを表示",
+        "commands.cmd3.label": "AI 編集用に文脈を展開",
+        "commands.cmd4.label": "編集された heavy ビューを反映",
+        "commands.cmd5.label": "逆インパクトを確認",
+        "commands.cmd6.label": "参照グラフを検証",
+        "final.eyebrow": "状況",
+        "final.title": "検査できるほど小さく、上に積めるほど確か。",
+        "final.lead": "yume-files は意図して保守的です: 一つのフォーマット、一つの v001 ランタイム、ゼロ依存、絞った e2e カバレッジ。次の段階は実利用: 小説・仕様・ワークフロー・テンプレート・コードベース。",
+        "final.cta1": "リポジトリを開く",
+        "final.cta2": "aiDoc 仕様を読む",
+        "footer.left": "MIT License · yume-files",
+        "footer.right": "AI 作業のための .yume.js ファンデーションファイル形式"
+      }
+    };
+
+    function applyLang(lang) {
+      if (!i18n[lang]) lang = "en";
+      document.documentElement.lang = lang === "jp" ? "ja" : "en";
+      document.documentElement.dataset.lang = lang;
+      const dict = i18n[lang];
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key] !== undefined) el.textContent = dict[key];
+      });
+      document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-html");
+        if (dict[key] !== undefined) el.innerHTML = dict[key];
+      });
+      document.querySelectorAll(".lang-toggle button").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.lang === lang);
+        btn.setAttribute("aria-pressed", btn.dataset.lang === lang ? "true" : "false");
+      });
+      try { localStorage.setItem("yume-lang", lang); } catch (e) {}
+    }
+
+    document.querySelectorAll(".lang-toggle button").forEach((btn) => {
+      btn.addEventListener("click", () => applyLang(btn.dataset.lang));
+    });
+
+    let initial = "en";
+    try {
+      const saved = localStorage.getItem("yume-lang");
+      if (saved && i18n[saved]) initial = saved;
+      else if (!saved && (navigator.language || "").toLowerCase().startsWith("ja")) initial = "jp";
+    } catch (e) {}
+    applyLang(initial);
+  </script>
 </body>
 </html>
