@@ -30,6 +30,7 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HELLO_SRC = join(HERE, 'examples', 'hello.fn.yume.js');
 const RUNTIME_SRC = join(HERE, 'runtimes', 'ver001.handle.yume.js');
+const PACKAGE_SRC = join(HERE, 'package.json');
 
 let pass = 0;
 let fail = 0;
@@ -40,6 +41,14 @@ function assert(cond, label) {
 }
 
 function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+// ============================================================
+// 0. project invariants
+// ============================================================
+console.log('\n[0] project invariants');
+const packageJson = JSON.parse(await readFile(PACKAGE_SRC, 'utf8'));
+assert(Object.keys(packageJson.dependencies ?? {}).length === 0, 'package has no runtime dependencies');
+assert(Object.keys(packageJson.devDependencies ?? {}).length === 0, 'package has no dev dependencies');
 
 // ============================================================
 // 1. parseBlock

@@ -57,7 +57,7 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 - folder を走査して、複数ファイルにまたがる apply group を検索できます。
 - HEAD から `refs` / `tags` を抽出し、その Block が何とつながっているかを記録できます。
 
-将来的には、より正確な `impact` 解析や AST parser 連携を追加する想定です。
+将来的には、より正確な `impact` 解析と source scan fixture の拡充を追加する想定です。core runtime には AST parser や外部 package 依存を入れません。
 
 ### 使い方
 
@@ -276,7 +276,7 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - Folder scans can find apply groups that span multiple files.
 - The runtime extracts `refs` / `tags` from `HEAD` so each Block can record what it connects to.
 
-Planned work includes more accurate `impact` analysis and AST parser integration.
+Planned work includes more accurate `impact` analysis and more source-scan fixtures. The core runtime will not take an AST parser or external package dependency.
 
 ### Usage
 
