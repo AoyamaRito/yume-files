@@ -16,6 +16,7 @@
 //   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
 //   - impact(reverse refs closure)
+//   - refsCheck(graph sanity)
 //   - refs / tags 抽出(import / export-from / dynamic import / bare calls / // @ref: / // @tags:)
 //   - cli(verb dispatcher)
 //
@@ -798,6 +799,84 @@ export async function impact(fileUrls, rootId, depth = 1) {
 }
 
 // ============================================================
+// refsCheck — refs graph sanity
+// ============================================================
+export async function refsCheck(fileUrls) {
+  const { entries, issues } = await loadYumeEntriesForCheck(fileUrls);
+  if (entries.length === 0) throw new Error('refsCheck: no readable yume block files');
+
+  const byFile = new Map(entries.map((entry) => [entry.file, entry]));
+  const byBlockId = new Map();
+  const idGroups = new Map();
+  for (const entry of entries) {
+    const group = idGroups.get(entry.block.id) ?? [];
+    group.push(entry);
+    idGroups.set(entry.block.id, group);
+    if (!byBlockId.has(entry.block.id)) byBlockId.set(entry.block.id, entry);
+  }
+
+  for (const [blockId, group] of idGroups) {
+    if (group.length <= 1) continue;
+    issues.push({
+      level: 'error',
+      type: 'duplicate-block-id',
+      blockId,
+      files: group.map((entry) => entry.relativeFile),
+      message: `duplicate block id '${blockId}'`,
+    });
+  }
+
+  const adjacency = new Map(entries.map((entry) => [entry.file, new Set()]));
+  const incoming = new Map(entries.map((entry) => [entry.file, 0]));
+
+  for (const entry of entries) {
+    for (const ref of latestRefs(entry)) {
+      const target = resolveEntryRef(entry, ref, byFile, byBlockId);
+      if (!target) {
+        addUnresolvedRefIssue(issues, entry, ref);
+        continue;
+      }
+      adjacency.get(entry.file).add(target.file);
+      incoming.set(target.file, (incoming.get(target.file) ?? 0) + 1);
+    }
+  }
+
+  for (const cycle of findRefCycles(entries, adjacency)) {
+    issues.push({
+      level: 'warning',
+      type: 'cycle',
+      files: cycle.map((entry) => entry.relativeFile),
+      message: `refs cycle: ${cycle.map((entry) => entry.relativeFile).join(' -> ')}`,
+    });
+  }
+
+  for (const entry of entries) {
+    if ((incoming.get(entry.file) ?? 0) > 0) continue;
+    if ((adjacency.get(entry.file)?.size ?? 0) > 0) continue;
+    issues.push({
+      level: 'info',
+      type: 'isolated-file',
+      file: entry.file,
+      relativeFile: entry.relativeFile,
+      blockId: entry.block.id,
+      message: 'file has no resolved incoming or outgoing refs',
+    });
+  }
+
+  const errors = issues.filter((issue) => issue.level === 'error');
+  const warnings = issues.filter((issue) => issue.level === 'warning');
+  const info = issues.filter((issue) => issue.level === 'info');
+  return {
+    ok: errors.length === 0,
+    files: entries.length,
+    errors,
+    warnings,
+    info,
+    issues,
+  };
+}
+
+// ============================================================
 // codec — heavy/decompress and heavyApply/recompress
 // ============================================================
 export async function heavy(fileUrls, rootId = '*', depth = 1) {
@@ -900,6 +979,42 @@ async function loadYumeEntries(fileUrls) {
   return entries;
 }
 
+async function loadYumeEntriesForCheck(fileUrls) {
+  const filePaths = normalizeFileUrls(fileUrls);
+  const root = commonDirectory(filePaths);
+  const entries = [];
+  const issues = [];
+
+  for (const file of filePaths) {
+    const relativeFile = relative(root, file) || basename(file);
+    try {
+      const parsed = await readParsedFile(file);
+      entries.push({
+        file,
+        relativeFile,
+        block: parsed.block,
+        head: parsed.head,
+        boot: parsed.boot,
+      });
+    } catch (error) {
+      if (isPlainHandleRuntime(file, error)) continue;
+      issues.push({
+        level: 'error',
+        type: 'invalid-file',
+        file,
+        relativeFile,
+        message: error?.message ?? String(error),
+      });
+    }
+  }
+
+  return { entries, issues };
+}
+
+function isPlainHandleRuntime(file) {
+  return basename(file).endsWith('.handle.yume.js');
+}
+
 function normalizeFileUrls(fileUrls) {
   if (!Array.isArray(fileUrls) || fileUrls.length === 0) {
     throw new TypeError('fileUrls must be a non-empty array');
@@ -994,6 +1109,65 @@ function buildReverseRefs(entries, byFile, byBlockId) {
     }
   }
   return reverseRefs;
+}
+
+function addUnresolvedRefIssue(issues, entry, ref) {
+  if (!ref || typeof ref.target !== 'string') return;
+  if (ref.kind === 'calls') return;
+  const pathLike = looksLikePathRef(ref.target);
+  issues.push({
+    level: pathLike ? 'error' : 'warning',
+    type: pathLike ? 'dangling-path-ref' : 'unresolved-ref',
+    file: entry.file,
+    relativeFile: entry.relativeFile,
+    blockId: entry.block.id,
+    ref,
+    message: `${pathLike ? 'dangling path ref' : 'unresolved ref'} '${ref.kind}:${ref.target}'`,
+  });
+}
+
+function findRefCycles(entries, adjacency) {
+  const byFile = new Map(entries.map((entry) => [entry.file, entry]));
+  const cycles = [];
+  const seenCycles = new Set();
+  const stack = [];
+  const stackSet = new Set();
+  const visited = new Set();
+
+  function visit(file) {
+    if (stackSet.has(file)) {
+      const start = stack.indexOf(file);
+      const cycleFiles = stack.slice(start).concat(file);
+      const key = canonicalCycleKey(cycleFiles);
+      if (!seenCycles.has(key)) {
+        seenCycles.add(key);
+        cycles.push(cycleFiles.map((cycleFile) => byFile.get(cycleFile)));
+      }
+      return;
+    }
+    if (visited.has(file)) return;
+
+    visited.add(file);
+    stack.push(file);
+    stackSet.add(file);
+    for (const next of adjacency.get(file) ?? []) visit(next);
+    stackSet.delete(file);
+    stack.pop();
+  }
+
+  for (const entry of entries) visit(entry.file);
+  return cycles;
+}
+
+function canonicalCycleKey(files) {
+  const cycle = files.slice(0, -1);
+  if (cycle.length === 0) return '';
+  let best = null;
+  for (let i = 0; i < cycle.length; i++) {
+    const rotated = cycle.slice(i).concat(cycle.slice(0, i)).join('\0');
+    if (best == null || rotated < best) best = rotated;
+  }
+  return best;
 }
 
 function findHeavyEntry(entries, rootId) {
@@ -1674,6 +1848,18 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
+    case 'refs-check': {
+      const inputs = refsCheckInputs(argv);
+      const files = inputs.length > 0 ? await expandFileInputs(inputs) : [fileUrl];
+      const report = await refsCheck(files);
+      if (hasFlag(argv, '--json')) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        printRefsCheckReport(report);
+      }
+      if (!report.ok) process.exit(1);
+      return;
+    }
     case 'apply-list': {
       const groups = await applyList(fileUrl);
       for (const group of groups) {
@@ -1733,7 +1919,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, impact, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, impact, refs-check, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }
@@ -1747,6 +1933,41 @@ function flagValue(argv, name) {
   const value = argv[i + 1];
   if (!value || value.startsWith('--')) return undefined;
   return value;
+}
+
+function hasFlag(argv, name) {
+  return argv.includes(name);
+}
+
+function printRefsCheckReport(report) {
+  console.log(`refs-check: ${report.ok ? 'ok' : 'failed'}  files=${report.files}  errors=${report.errors.length}  warnings=${report.warnings.length}  info=${report.info.length}`);
+  for (const issue of report.issues) {
+    console.log(formatRefsCheckIssue(issue));
+  }
+}
+
+function formatRefsCheckIssue(issue) {
+  const parts = [issue.level, issue.type];
+  if (issue.relativeFile) parts.push(issue.relativeFile);
+  if (issue.blockId) parts.push(`block=${issue.blockId}`);
+  if (issue.ref) parts.push(`ref=${issue.ref.kind}:${issue.ref.target}`);
+  if (issue.files) parts.push(`files=${issue.files.join(' -> ')}`);
+  if (issue.message) parts.push(`- ${issue.message}`);
+  return parts.join('  ');
+}
+
+function refsCheckInputs(argv) {
+  const out = [];
+  for (let i = 3; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--json') continue;
+    if (arg.startsWith('--')) {
+      if (argv[i + 1] && !argv[i + 1].startsWith('--')) i++;
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
 }
 
 function positionalArgs(argv, start) {

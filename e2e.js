@@ -10,7 +10,7 @@
 //   7. show / diff — version 取得と text diff
 //   8. notes / apply / rollback — mutable notes、folder search、applyId group、append-only rollback
 //   9. folder apply — 複数 file 横断 apply 検索
-//   10. heavy / heavyApply / impact — codec round-trip、multi-file applyId、reverse refs
+//   10. heavy / heavyApply / impact / refsCheck — codec round-trip、multi-file applyId、refs graph
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
-  heavy, heavyApply, impact,
+  heavy, heavyApply, impact, refsCheck,
   show, diff, rollback,
   refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
@@ -408,9 +408,9 @@ assert(noteHits[0].relativeFile === 'hello2.fn.yume.js', 'notesSearch reports re
 assert(noteHits[0].blockId === 'hello2', 'notesSearch reports block id');
 
 // ============================================================
-// 10. heavy / heavyApply / impact
+// 10. heavy / heavyApply / impact / refsCheck
 // ============================================================
-console.log('\n[10] heavy / heavyApply / impact');
+console.log('\n[10] heavy / heavyApply / impact / refsCheck');
 const formatFile = join(tmpDir, 'format.fn.yume.js');
 {
   const s = await readFile(HELLO_SRC, 'utf8');
@@ -493,6 +493,56 @@ assert(impactedWorld.some((item) => item.relativeFile === 'chapter-two.draft.yum
 
 const explicitHeavyView = await heavy([worldFile, chapterOneFile, chapterTwoFile], 'chapterOne', 1);
 assert(explicitHeavyView.includes('"file":"novel.world.yume.js"'), 'heavy() follows explicit @ref path refs');
+
+const cleanRefsReport = await refsCheck([worldFile, chapterOneFile, chapterTwoFile]);
+assert(cleanRefsReport.ok && cleanRefsReport.errors.length === 0, 'refsCheck() passes resolved explicit refs');
+
+const brokenRefFile = join(tmpDir, 'broken-ref.draft.yume.js');
+await writeFixture(brokenRefFile, {
+  id: 'brokenRef',
+  type: 'draft',
+  content: `// @ref: ./missing.world.yume.js
+export const brokenRef = "missing";
+`,
+  ts: 1714000005000,
+});
+const brokenRefsReport = await refsCheck([worldFile, brokenRefFile]);
+assert(!brokenRefsReport.ok, 'refsCheck() fails dangling path refs');
+assert(brokenRefsReport.errors.some((issue) => issue.type === 'dangling-path-ref' && issue.relativeFile === 'broken-ref.draft.yume.js'), 'refsCheck() reports dangling path refs');
+
+const duplicateWorldFile = join(tmpDir, 'duplicate.world.yume.js');
+await writeFixture(duplicateWorldFile, {
+  id: 'novelWorld',
+  type: 'world',
+  content: `export const duplicateWorld = {};
+`,
+  ts: 1714000006000,
+});
+const duplicateRefsReport = await refsCheck([worldFile, duplicateWorldFile]);
+assert(!duplicateRefsReport.ok, 'refsCheck() fails duplicate block ids');
+assert(duplicateRefsReport.errors.some((issue) => issue.type === 'duplicate-block-id' && issue.blockId === 'novelWorld'), 'refsCheck() reports duplicate block ids');
+
+const cycleAFile = join(tmpDir, 'cycle-a.spec.yume.js');
+const cycleBFile = join(tmpDir, 'cycle-b.spec.yume.js');
+await writeFixture(cycleAFile, {
+  id: 'cycleA',
+  type: 'spec',
+  content: `// @ref: cycleB
+export const cycleA = true;
+`,
+  ts: 1714000007000,
+});
+await writeFixture(cycleBFile, {
+  id: 'cycleB',
+  type: 'spec',
+  content: `// @ref: cycleA
+export const cycleB = true;
+`,
+  ts: 1714000008000,
+});
+const cycleRefsReport = await refsCheck([cycleAFile, cycleBFile]);
+assert(cycleRefsReport.ok, 'refsCheck() treats cycles as warnings');
+assert(cycleRefsReport.warnings.some((issue) => issue.type === 'cycle'), 'refsCheck() reports refs cycles');
 
 // ============================================================
 // cleanup

@@ -50,11 +50,12 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 - `HEAD` region には現在の実コードを置きます。
 - `BOOT` region から co-located runtime を呼び出せます。
 - runtime version を file 側で pin するため、古い file は古い runtime のまま動かせます。
-- v001 runtime は `commit` / `history` / `heavy` / `heavy-apply` / `decompress` / `recompress` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `impact` / `note-*` / `notes-search` / `apply-*` を提供します。
+- v001 runtime は `commit` / `history` / `heavy` / `heavy-apply` / `decompress` / `recompress` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `impact` / `refs-check` / `note-*` / `notes-search` / `apply-*` を提供します。
 - `notes` は変更理由や意図を書く mutable layer です。version hash には含めません。
 - `applyId` は一連の操作で生まれた version を束ねる ID です。apply 全体にも note を付けられます。
 - `heavy` で関連 Block を AI が編集しやすい text view に展開し、`heavy-apply` で `.yume.js` に戻せます。
 - `impact` で、ある Block を参照している file を reverse refs でたどれます。
+- `refs-check` で refs graph の dangling path、duplicate block id、cycle、孤立 file を検査できます。
 - folder を走査して、複数ファイルにまたがる apply group を検索できます。
 - HEAD から `refs` / `tags` を抽出し、その Block が何とつながっているかを記録できます。
 
@@ -114,6 +115,13 @@ node examples/hello.fn.yume.js heavy hello 1 .
 
 ```sh
 node examples/hello.fn.yume.js impact hello 1 .
+```
+
+refs graph を検査:
+
+```sh
+node examples/hello.fn.yume.js refs-check .
+node examples/hello.fn.yume.js refs-check . --json
 ```
 
 編集済み view を `.yume.js` に戻す:
@@ -195,6 +203,7 @@ yume-files/
 - commit 時に HEAD から `import` / `export ... from` / dynamic `import()` / bare function call / `// @ref:` / `// @tags:` を抽出します。
 - `heavy` は root Block から `refs` をたどって関連 file を展開します。
 - `impact` は root Block を参照している file を reverse refs でたどります。
+- `refs-check` は path ref の未解決と duplicate block id を error、cycle と unresolved typed/id ref を warning、孤立 file を info として扱います。
 - `heavy-apply` は編集済み view を逆配分し、差分がある file だけ同じ `applyId` で append します。
 - rollback は `versions[]` を切り詰めず、指定 version の content を新しい version として append します。
 - 書き込みは tmp file + fsync + rename で行います。
@@ -277,11 +286,12 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - The `HEAD` region contains the current source code.
 - The optional `BOOT` region can invoke a co-located runtime.
 - Runtime versions are pinned per file, so older files can keep using older runtimes.
-- The v001 runtime currently supports `commit`, `history`, `heavy`, `heavy-apply`, `decompress`, `recompress`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `impact`, `note-*`, `notes-search`, and `apply-*`.
+- The v001 runtime currently supports `commit`, `history`, `heavy`, `heavy-apply`, `decompress`, `recompress`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `impact`, `refs-check`, `note-*`, `notes-search`, and `apply-*`.
 - `notes` is a mutable commentary layer for intent and reasoning. It is not included in version hashes.
 - `applyId` groups versions produced by the same operation. Notes can also be attached to an apply group.
 - `heavy` expands related Blocks into an AI-editable text view, and `heavy-apply` writes that view back into `.yume.js` files.
 - `impact` follows reverse refs to show which files reference a Block.
+- `refs-check` validates the refs graph for dangling paths, duplicate block ids, cycles, and isolated files.
 - Folder scans can find apply groups that span multiple files.
 - The runtime extracts `refs` / `tags` from `HEAD` so each Block can record what it connects to.
 
@@ -341,6 +351,13 @@ Show the files impacted by a Block:
 
 ```sh
 node examples/hello.fn.yume.js impact hello 1 .
+```
+
+Check the refs graph:
+
+```sh
+node examples/hello.fn.yume.js refs-check .
+node examples/hello.fn.yume.js refs-check . --json
 ```
 
 Write an edited view back into `.yume.js` files:
@@ -422,6 +439,7 @@ yume-files/
 - On commit, the runtime extracts `import`, `export ... from`, dynamic `import()`, bare function calls, `// @ref:`, and `// @tags:`.
 - `heavy` follows `refs` from a root Block and expands related files.
 - `impact` follows reverse refs to find files that reference the root Block.
+- `refs-check` treats dangling path refs and duplicate block ids as errors, cycles and unresolved typed/id refs as warnings, and isolated files as info.
 - `heavy-apply` maps an edited view back into files and appends changed files with the same `applyId`.
 - Rollback does not truncate `versions[]`; it appends the target version content as a new version.
 - Writes use tmp file + fsync + rename.
