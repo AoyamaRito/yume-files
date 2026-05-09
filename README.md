@@ -39,13 +39,14 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 - `HEAD` region には現在の実コードを置きます。
 - `BOOT` region から co-located runtime を呼び出せます。
 - runtime version を file 側で pin するため、古い file は古い runtime のまま動かせます。
-- v001 runtime は `commit` / `history` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `note-*` / `notes-search` / `apply-*` を提供します。
+- v001 runtime は `commit` / `history` / `heavy` / `heavy-apply` / `decompress` / `recompress` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `note-*` / `notes-search` / `apply-*` を提供します。
 - `notes` は変更理由や意図を書く mutable layer です。version hash には含めません。
 - `applyId` は一連の操作で生まれた version を束ねる ID です。apply 全体にも note を付けられます。
+- `heavy` で関連 Block を AI が編集しやすい text view に展開し、`heavy-apply` で `.yume.js` に戻せます。
 - folder を走査して、複数ファイルにまたがる apply group を検索できます。
 - HEAD から `refs` / `tags` を抽出し、その Block が何とつながっているかを記録できます。
 
-将来的には、AI が編集した view を `.yume.js` に戻す codec round-trip を追加する想定です。
+将来的には、より正確な `impact` 解析や AST parser 連携を追加する想定です。
 
 ### 使い方
 
@@ -89,6 +90,18 @@ node examples/hello.fn.yume.js diff 0 -1
 ```sh
 node examples/hello.fn.yume.js refs
 node examples/hello.fn.yume.js tags
+```
+
+関連 file を AI 編集用 view に展開:
+
+```sh
+node examples/hello.fn.yume.js heavy hello 1 .
+```
+
+編集済み view を `.yume.js` に戻す:
+
+```sh
+node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
 ```
 
 手動編集後に HEAD を commit:
@@ -162,6 +175,8 @@ yume-files/
 - `versions[]` は append-only です。
 - `hash` / `prevHash` によって履歴 chain を検証します。
 - commit 時に HEAD から `import` / `export ... from` / dynamic `import()` / bare function call / `// @tags:` を抽出します。
+- `heavy` は root Block から `refs` をたどって関連 file を展開します。
+- `heavy-apply` は編集済み view を逆配分し、差分がある file だけ同じ `applyId` で append します。
 - rollback は `versions[]` を切り詰めず、指定 version の content を新しい version として append します。
 - 書き込みは tmp file + fsync + rename で行います。
 - lock file は atomic create + token ownership で扱います。
@@ -232,13 +247,14 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - The `HEAD` region contains the current source code.
 - The optional `BOOT` region can invoke a co-located runtime.
 - Runtime versions are pinned per file, so older files can keep using older runtimes.
-- The v001 runtime currently supports `commit`, `history`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `note-*`, `notes-search`, and `apply-*`.
+- The v001 runtime currently supports `commit`, `history`, `heavy`, `heavy-apply`, `decompress`, `recompress`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `note-*`, `notes-search`, and `apply-*`.
 - `notes` is a mutable commentary layer for intent and reasoning. It is not included in version hashes.
 - `applyId` groups versions produced by the same operation. Notes can also be attached to an apply group.
+- `heavy` expands related Blocks into an AI-editable text view, and `heavy-apply` writes that view back into `.yume.js` files.
 - Folder scans can find apply groups that span multiple files.
 - The runtime extracts `refs` / `tags` from `HEAD` so each Block can record what it connects to.
 
-Planned work includes codec round-trip for AI-edited views.
+Planned work includes more accurate `impact` analysis and AST parser integration.
 
 ### Usage
 
@@ -282,6 +298,18 @@ Show latest refs / tags:
 ```sh
 node examples/hello.fn.yume.js refs
 node examples/hello.fn.yume.js tags
+```
+
+Expand related files into an AI-editable view:
+
+```sh
+node examples/hello.fn.yume.js heavy hello 1 .
+```
+
+Write an edited view back into `.yume.js` files:
+
+```sh
+node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
 ```
 
 Commit a manually edited `HEAD` region:
@@ -355,6 +383,8 @@ yume-files/
 - `versions[]` is append-only.
 - `hash` / `prevHash` form a verifiable history chain.
 - On commit, the runtime extracts `import`, `export ... from`, dynamic `import()`, bare function calls, and `// @tags:`.
+- `heavy` follows `refs` from a root Block and expands related files.
+- `heavy-apply` maps an edited view back into files and appends changed files with the same `applyId`.
 - Rollback does not truncate `versions[]`; it appends the target version content as a new version.
 - Writes use tmp file + fsync + rename.
 - Lock files use atomic create + token ownership.

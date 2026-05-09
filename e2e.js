@@ -10,6 +10,7 @@
 //   7. show / diff — version 取得と text diff
 //   8. notes / apply / rollback — mutable notes、folder search、applyId group、append-only rollback
 //   9. folder apply — 複数 file 横断 apply 検索
+//   10. heavy / heavyApply — codec round-trip と multi-file applyId
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
@@ -20,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
+  heavy, heavyApply,
   show, diff, rollback,
   refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
@@ -309,6 +311,58 @@ const noteHits = await notesSearch(tmpDir, 'changed second file');
 assert(noteHits.length === 1, 'notesSearch finds matching note text');
 assert(noteHits[0].relativeFile === 'hello2.fn.yume.js', 'notesSearch reports relative file');
 assert(noteHits[0].blockId === 'hello2', 'notesSearch reports block id');
+
+// ============================================================
+// 10. heavy / heavyApply
+// ============================================================
+console.log('\n[10] heavy / heavyApply');
+const formatFile = join(tmpDir, 'format.fn.yume.js');
+{
+  const s = await readFile(HELLO_SRC, 'utf8');
+  const p = parseBlock(s);
+  const content = `export function formatName(name) {
+  return \`formatted \${name}\`;
+}
+`;
+  const ts = 1714000001000;
+  p.block.id = 'formatName';
+  p.block.type = 'fn';
+  p.block.versions = [{
+    hash: hashContent(content, null, ts),
+    prevHash: null,
+    content,
+    ts,
+    refs: [],
+    tags: ['helper'],
+    applyId: null,
+  }];
+  p.head = content;
+  p.boot = p.boot.replace('../runtimes/ver', './runtimes/ver');
+  await atomicWrite(formatFile, serializeBlock(p));
+}
+
+const heavyView = await heavy([tmpFile, tmpFile2, formatFile], 'hello', 1);
+assert(heavyView.startsWith('// @yume-heavy: 1'), 'heavy() emits heavy view header');
+assert(heavyView.includes('"file":"hello.fn.yume.js"'), 'heavy() includes root file');
+assert(heavyView.includes('"file":"format.fn.yume.js"'), 'heavy() follows import refs within depth');
+assert(!heavyView.includes('"file":"hello2.fn.yume.js"'), 'heavy() excludes unrelated files');
+
+const editedHeavyView = heavyView.replace('return formatName(name);', 'return formatName(name).toUpperCase();');
+const codecApply = await heavyApply([tmpFile, tmpFile2, formatFile], 'hello', editedHeavyView, 1, {
+  note: { author: 'ai', text: 'codec round-trip edit', kind: 'codec' },
+});
+assert(codecApply.updated.length === 1 && codecApply.updated[0] === 'hello.fn.yume.js', 'heavyApply updates edited file only');
+assert(codecApply.unchanged.includes('format.fn.yume.js'), 'heavyApply reports unchanged dependency');
+assert(codecApply.applyId && codecApply.newHashes['hello.fn.yume.js'], 'heavyApply returns applyId and new hash');
+const codecVersions = await history(tmpFile);
+assert(codecVersions.at(-1).content.includes('toUpperCase()'), 'heavyApply appends edited content');
+assert(codecVersions.at(-1).applyId === codecApply.applyId, 'heavyApply stores shared applyId');
+const codecGroup = await applyShow(tmpFile, codecApply.applyId);
+assert(codecGroup.notes.length === 1 && codecGroup.notes[0].text === 'codec round-trip edit', 'heavyApply stores apply note');
+
+const heavyViewAfter = await heavy([tmpFile, tmpFile2, formatFile], 'hello', 1);
+const noopApply = await heavyApply([tmpFile, tmpFile2, formatFile], 'hello', heavyViewAfter, 1);
+assert(noopApply.updated.length === 0 && noopApply.applyId === null, 'heavyApply is no-op when view is unchanged');
 
 // ============================================================
 // cleanup

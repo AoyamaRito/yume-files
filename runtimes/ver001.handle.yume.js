@@ -10,6 +10,7 @@
 //   - atomicWrite(tmp + rename)
 //   - acquireLock(stale recovery 込み)
 //   - validateBlock(hash chain / schema sanity)
+//   - heavy / heavyApply codec(decompress / recompress aliases)
 //   - commitManual(boundary case、AI 不在の人手編集救済)
 //   - history / show / diff / rollback
 //   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
@@ -18,13 +19,13 @@
 //   - cli(verb dispatcher)
 //
 // 未実装(後続 phase):
-//   - decompress / recompress(codec、Phase 5)
+//   - impact
 //
 // spec: ../AiRunAndRead_BLOCKFILE.js
 
-import { readFile, rename, unlink, open, readdir } from 'node:fs/promises';
+import { readFile, rename, unlink, open, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { join, relative } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { hostname } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 
@@ -38,6 +39,11 @@ const HEAD_BEGIN = '// === HEAD ===';
 const HEAD_END   = '// === /HEAD ===';
 const BOOT_BEGIN = '// === BOOT ===';
 const BOOT_END   = '// === /BOOT ===';
+const HEAVY_HEADER = '// @yume-heavy: 1';
+const HEAVY_FILE_BEGIN = '// === YUME:FILE ===';
+const HEAVY_META_PREFIX = '// yume:meta ';
+const HEAVY_CONTENT_BEGIN = '// === YUME:CONTENT ===';
+const HEAVY_FILE_END = '// === /YUME:FILE ===';
 
 // ============================================================
 // parseBlock — source → {block, head, boot}
@@ -352,6 +358,26 @@ export async function acquireLock(filePath) {
   throw new Error(`yume: could not acquire lock after stale recovery: ${lockPath}`);
 }
 
+async function acquireLocks(filePaths) {
+  const releases = [];
+  const files = [...new Set(filePaths)].sort();
+  try {
+    for (const file of files) {
+      releases.push(await acquireLock(file));
+    }
+  } catch (e) {
+    for (const release of releases.reverse()) {
+      try { await release(); } catch {}
+    }
+    throw e;
+  }
+  return async function releaseAll() {
+    for (const release of releases.reverse()) {
+      await release();
+    }
+  };
+}
+
 async function createLockFile(lockPath, lockData) {
   const handle = await open(lockPath, 'wx');
   try {
@@ -635,6 +661,286 @@ export async function tags(fileUrl) {
 }
 
 // ============================================================
+// codec — heavy/decompress and heavyApply/recompress
+// ============================================================
+export async function heavy(fileUrls, rootId = '*', depth = 1) {
+  const entries = await loadYumeEntries(fileUrls);
+  const selected = selectHeavyEntries(entries, rootId, normalizeDepth(depth));
+  return serializeHeavyView(selected, rootId, depth);
+}
+
+export async function decompress(fileUrls, rootId = '*', depth = 1) {
+  return heavy(fileUrls, rootId, depth);
+}
+
+export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}) {
+  if (typeof content !== 'string') throw new TypeError('heavyApply: content must be string');
+
+  const sections = parseHeavyView(content);
+  const entries = await loadYumeEntries(fileUrls);
+  const selected = selectHeavyEntries(entries, rootId, normalizeDepth(depth));
+  const byRelative = new Map(selected.map((entry) => [entry.relativeFile, entry]));
+  const byBlockId = new Map(selected.map((entry) => [entry.block.id, entry]));
+  const sectionByFile = new Map();
+
+  for (const section of sections) {
+    const entry = byRelative.get(section.meta.file) ?? byBlockId.get(section.meta.id);
+    if (!entry) throw new Error(`heavyApply: view contains unknown file: ${section.meta.file ?? section.meta.id ?? '?'}`);
+    if (sectionByFile.has(entry.file)) throw new Error(`heavyApply: duplicate file section: ${entry.relativeFile}`);
+    sectionByFile.set(entry.file, { entry, section });
+  }
+
+  for (const entry of selected) {
+    if (!sectionByFile.has(entry.file)) throw new Error(`heavyApply: missing file section: ${entry.relativeFile}`);
+  }
+
+  const unchanged = [];
+  const pending = [];
+  for (const { entry, section } of sectionByFile.values()) {
+    if (section.content === latestContent(entry)) {
+      unchanged.push(entry.relativeFile);
+    } else {
+      pending.push({ entry, section });
+    }
+  }
+
+  if (pending.length === 0) {
+    return { updated: [], unchanged, applyId: null, newHashes: {} };
+  }
+
+  const applyId = opts.applyId ?? makeApplyId();
+  const release = await acquireLocks(pending.map(({ entry }) => entry.file));
+  const updated = [];
+  const newHashes = {};
+
+  try {
+    for (const { entry, section } of pending) {
+      const parsed = await readParsedFile(entry.file);
+      const currentHead = parsed.block.versions.at(-1);
+      if (!currentHead) throw new Error(`heavyApply: no versions: ${entry.relativeFile}`);
+      if (parsed.head !== currentHead.content) {
+        throw new Error(`heavyApply: HEAD is dirty: ${entry.relativeFile}`);
+      }
+      if (section.meta.hash && currentHead.hash !== section.meta.hash) {
+        throw new Error(`heavyApply: stale view for ${entry.relativeFile}: expected ${section.meta.hash}, found ${currentHead.hash}`);
+      }
+
+      parsed.head = section.content;
+      const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
+      await atomicWrite(entry.file, serializeBlock(parsed));
+      updated.push(entry.relativeFile);
+      newHashes[entry.relativeFile] = version.hash;
+    }
+  } finally {
+    await release();
+  }
+
+  return { updated, unchanged, applyId, newHashes };
+}
+
+export async function recompress(fileUrls, rootId, editedView, depth = 1, opts = {}) {
+  return heavyApply(fileUrls, rootId, editedView, depth, opts);
+}
+
+async function loadYumeEntries(fileUrls) {
+  const filePaths = normalizeFileUrls(fileUrls);
+  const root = commonDirectory(filePaths);
+  const entries = [];
+
+  for (const file of filePaths) {
+    const parsed = await readYumeFileOrNull(file);
+    if (!parsed) continue;
+    entries.push({
+      file,
+      relativeFile: relative(root, file) || basename(file),
+      block: parsed.block,
+      head: parsed.head,
+      boot: parsed.boot,
+    });
+  }
+
+  if (entries.length === 0) throw new Error('heavy: no readable yume block files');
+  return entries;
+}
+
+function normalizeFileUrls(fileUrls) {
+  if (!Array.isArray(fileUrls) || fileUrls.length === 0) {
+    throw new TypeError('fileUrls must be a non-empty array');
+  }
+  const out = [];
+  const seen = new Set();
+  for (const fileUrl of fileUrls) {
+    const file = resolve(toPath(fileUrl));
+    if (seen.has(file)) continue;
+    seen.add(file);
+    out.push(file);
+  }
+  return out;
+}
+
+function commonDirectory(filePaths) {
+  let root = dirname(filePaths[0]);
+  while (filePaths.some((file) => !isInside(root, file))) {
+    const parent = dirname(root);
+    if (parent === root) break;
+    root = parent;
+  }
+  return root;
+}
+
+function isInside(root, file) {
+  const rel = relative(root, file);
+  return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..');
+}
+
+function selectHeavyEntries(entries, rootId, depth) {
+  if (rootId == null || rootId === '' || rootId === '*') return entries;
+  const root = findHeavyEntry(entries, String(rootId));
+  if (!root) throw new Error(`heavy: root not found: ${rootId}`);
+
+  const selected = [];
+  const seen = new Set();
+  const queue = [{ entry: root, distance: 0 }];
+  const byFile = new Map(entries.map((entry) => [entry.file, entry]));
+  const byBlockId = new Map(entries.map((entry) => [entry.block.id, entry]));
+
+  while (queue.length > 0) {
+    const { entry, distance } = queue.shift();
+    if (seen.has(entry.file)) continue;
+    seen.add(entry.file);
+    selected.push(entry);
+
+    if (distance >= depth) continue;
+    for (const ref of latestRefs(entry)) {
+      const next = resolveHeavyRef(entry, ref, byFile, byBlockId);
+      if (next && !seen.has(next.file)) queue.push({ entry: next, distance: distance + 1 });
+    }
+  }
+
+  return selected;
+}
+
+function findHeavyEntry(entries, rootId) {
+  const normalized = resolveMaybePath(rootId);
+  return entries.find((entry) =>
+    entry.block.id === rootId ||
+    entry.relativeFile === rootId ||
+    entry.file === normalized ||
+    basename(entry.file) === rootId
+  );
+}
+
+function resolveMaybePath(value) {
+  try {
+    return resolve(toPath(value));
+  } catch {
+    return value;
+  }
+}
+
+function latestVersion(entry) {
+  return entry.block.versions.at(-1) ?? null;
+}
+
+function latestContent(entry) {
+  return latestVersion(entry)?.content ?? entry.head;
+}
+
+function latestRefs(entry) {
+  return latestVersion(entry)?.refs ?? [];
+}
+
+function resolveHeavyRef(entry, ref, byFile, byBlockId) {
+  if (!ref || typeof ref.target !== 'string') return null;
+  const byId = byBlockId.get(ref.target);
+  if (byId) return byId;
+
+  if (ref.kind === 'import' || ref.kind === 'export' || ref.kind === 'dynamic-import') {
+    const targetFile = resolve(dirname(entry.file), ref.target);
+    return byFile.get(targetFile) ?? null;
+  }
+
+  return null;
+}
+
+function serializeHeavyView(entries, rootId, depth) {
+  const meta = {
+    rootId,
+    depth: formatDepth(depth),
+    files: entries.length,
+  };
+  let out = `${HEAVY_HEADER}\n`;
+  out += `// yume:root ${JSON.stringify(meta)}\n\n`;
+
+  for (const entry of entries) {
+    const version = latestVersion(entry);
+    const content = latestContent(entry);
+    const fileMeta = {
+      file: entry.relativeFile,
+      id: entry.block.id,
+      type: entry.block.type,
+      hash: version?.hash ?? null,
+      refs: version?.refs?.length ?? 0,
+      tags: version?.tags ?? [],
+      contentEndsWithNewline: content.endsWith('\n'),
+    };
+    out += `${HEAVY_FILE_BEGIN}\n`;
+    out += `${HEAVY_META_PREFIX}${JSON.stringify(fileMeta)}\n`;
+    out += `${HEAVY_CONTENT_BEGIN}\n`;
+    out += content;
+    if (!content.endsWith('\n')) out += '\n';
+    out += `${HEAVY_FILE_END}\n\n`;
+  }
+
+  return out;
+}
+
+function parseHeavyView(view) {
+  const lines = view.split(/\r?\n/);
+  const sections = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] !== HEAVY_FILE_BEGIN) continue;
+
+    const metaLine = lines[++i];
+    if (!metaLine?.startsWith(HEAVY_META_PREFIX)) throw new Error('parseHeavyView: missing file metadata');
+    let meta;
+    try {
+      meta = JSON.parse(metaLine.slice(HEAVY_META_PREFIX.length));
+    } catch (e) {
+      throw new Error('parseHeavyView: invalid file metadata: ' + e.message);
+    }
+
+    if (lines[++i] !== HEAVY_CONTENT_BEGIN) throw new Error(`parseHeavyView: missing content marker for ${meta.file ?? meta.id ?? '?'}`);
+    const contentLines = [];
+    while (++i < lines.length && lines[i] !== HEAVY_FILE_END) {
+      contentLines.push(lines[i]);
+    }
+    if (i >= lines.length) throw new Error(`parseHeavyView: missing end marker for ${meta.file ?? meta.id ?? '?'}`);
+
+    let content = contentLines.join('\n');
+    if (meta.contentEndsWithNewline) content += '\n';
+    sections.push({ meta, content });
+  }
+
+  if (sections.length === 0) throw new Error('parseHeavyView: no file sections found');
+  return sections;
+}
+
+function normalizeDepth(depth) {
+  if (depth === Number.POSITIVE_INFINITY) return depth;
+  if (depth === 'all' || depth === '*') return Number.POSITIVE_INFINITY;
+  const n = Number(depth);
+  if (!Number.isInteger(n) || n < 0) throw new TypeError('depth must be a non-negative integer or `all`');
+  return n;
+}
+
+function formatDepth(depth) {
+  const normalized = normalizeDepth(depth);
+  return Number.isFinite(normalized) ? normalized : 'all';
+}
+
+// ============================================================
 // apply — applyId group 閲覧
 // ============================================================
 export async function applyList(fileUrl) {
@@ -729,6 +1035,7 @@ export async function applySearch(folder, applyId) {
 
 async function listYumeFiles(root) {
   const entries = await readdir(root, { withFileTypes: true });
+  entries.sort((a, b) => a.name.localeCompare(b.name));
   const files = [];
   for (const entry of entries) {
     const path = join(root, entry.name);
@@ -1052,6 +1359,38 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
+    case 'heavy':
+    case 'decompress': {
+      const rootId = argv[3] ?? block.id;
+      const depth = parseDepthArg(argv[4], 1);
+      const inputs = positionalArgs(argv, 5);
+      const files = inputs.length > 0 ? await expandFileInputs(inputs) : [fileUrl];
+      process.stdout.write(await heavy(files, rootId, depth));
+      return;
+    }
+    case 'heavy-apply':
+    case 'recompress': {
+      const viewPath = argv[3];
+      if (!viewPath) return usage(`${verb} <viewFile|-> [rootId] [depth] [fileOrFolder...]`);
+      const rootId = argv[4] ?? block.id;
+      const depth = parseDepthArg(argv[5], 1);
+      const inputs = positionalArgs(argv, 6);
+      const files = inputs.length > 0 ? await expandFileInputs(inputs) : [fileUrl];
+      const noteText = flagValue(argv, '--note');
+      const view = viewPath === '-' ? await readStdin() : await readFile(toPath(viewPath), 'utf8');
+      const r = await heavyApply(files, rootId, view, depth, {
+        applyId: flagValue(argv, '--apply-id'),
+        note: noteText ? {
+          author: flagValue(argv, '--author') ?? 'human',
+          kind: flagValue(argv, '--kind'),
+          text: noteText,
+        } : undefined,
+      });
+      console.log(`apply=${r.applyId ?? '-'}  updated=${r.updated.length}  unchanged=${r.unchanged.length}`);
+      for (const file of r.updated) console.log(`  updated ${file}  ${r.newHashes[file].slice(0, 7)}`);
+      for (const file of r.unchanged) console.log(`  unchanged ${file}`);
+      return;
+    }
     case 'show': {
       const v = await show(fileUrl, argv[3] ?? 'head');
       console.log(`hash: ${v.hash}`);
@@ -1200,7 +1539,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }
@@ -1214,6 +1553,48 @@ function flagValue(argv, name) {
   const value = argv[i + 1];
   if (!value || value.startsWith('--')) return undefined;
   return value;
+}
+
+function positionalArgs(argv, start) {
+  const out = [];
+  for (let i = start; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--')) {
+      if (argv[i + 1] && !argv[i + 1].startsWith('--')) i++;
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
+}
+
+function parseDepthArg(value, fallback) {
+  if (value == null || value.startsWith?.('--')) return fallback;
+  return normalizeDepth(value);
+}
+
+async function expandFileInputs(inputs) {
+  const files = [];
+  const seen = new Set();
+  for (const input of inputs) {
+    const path = resolve(toPath(input));
+    const info = await stat(path);
+    const expanded = info.isDirectory() ? await listYumeFiles(path) : [path];
+    for (const file of expanded) {
+      const resolved = resolve(file);
+      if (seen.has(resolved)) continue;
+      seen.add(resolved);
+      files.push(resolved);
+    }
+  }
+  return files;
+}
+
+async function readStdin() {
+  process.stdin.setEncoding('utf8');
+  let data = '';
+  for await (const chunk of process.stdin) data += chunk;
+  return data;
 }
 
 function usage(message) {

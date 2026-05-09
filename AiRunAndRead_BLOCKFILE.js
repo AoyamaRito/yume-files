@@ -21,7 +21,7 @@
 
 export const VERSION = "0.3-draft";
 export const DATE = "2026-05-08";
-export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(show/diff/rollback/refs/tags/notes/search/apply/folder apply scan included)";
+export const STATUS = "draft, v001 partial reference runtime implemented in yume-files(heavy codec/show/diff/rollback/refs/tags/notes/search/apply/folder apply scan included)";
 
 // ============================================================
 // §0 動機と一行定義
@@ -100,7 +100,7 @@ export const Schema = {
   },
   // 任意フィールド
   optional: {
-    api:   "string[] — file が runtime に期待する verb の宣言。**freeform**(canonical list 固定なし)、ヒント情報。例: ['commit', 'history', 'show', 'diff', 'rollback', 'validate', 'noteAdd', 'notesSearch', 'applyList']",
+    api:   "string[] — file が runtime に期待する verb の宣言。**freeform**(canonical list 固定なし)、ヒント情報。例: ['commit', 'history', 'heavy', 'heavyApply', 'show', 'diff', 'rollback', 'validate', 'noteAdd', 'notesSearch', 'applyList']",
     meta:  "object — 任意の付加情報(author / created / 等)。挙動には影響しない",
     notes: "object — SHADOW commentary layer。{ [versionHash | 'apply:<applyId>']: Note[] }(§3.5 参照)",
   },
@@ -123,7 +123,7 @@ export const __block = {
   "type": "fn",
   "schemaVersion": 1,
   "runtime": { "name": "yume", "version": "001" },
-  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteList", "notesSearch", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "heavy", "heavyApply", "decompress", "recompress", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteList", "notesSearch", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     { "hash": "abc123", "prevHash": null,     "content": "export function foo(x){return x;}",      "ts": 1714000000000, "refs": [], "tags": [], "applyId": null },
     { "hash": "def456", "prevHash": "abc123", "content": "export function foo(x){return x + 1;}",  "ts": 1714100000000, "refs": [], "tags": [], "applyId": "apply-2026-05-08-xyz" }
@@ -554,7 +554,7 @@ export const __block = {
     "name": "yume",
     "version": "001"
   },
-  "api": ["commit", "history", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "notesSearch", "applyList", "applyShow", "applyIndex", "applySearch"],
+  "api": ["commit", "history", "heavy", "heavyApply", "decompress", "recompress", "show", "diff", "rollback", "validate", "refs", "tags", "noteAdd", "noteEdit", "noteRm", "noteList", "notesSearch", "applyList", "applyShow", "applyIndex", "applySearch"],
   "versions": [
     {
       "hash": "75f051c18c0415b5d5af267581834e21a850f4d3cca46c817b5432f17dc393f0",
@@ -589,9 +589,9 @@ if (import.meta.url === \`file://\${process.argv[1]}\`) {
 export const RuntimeApiSurface = {
   // --- Codec(中心、§16 参照)---
   decompress: "(fileUrls: string[], rootId: string, depth: number) => Promise<string>  — alias of heavy",
-  recompress: "(fileUrls: string[], rootId: string, editedView: string, depth: number, opts?: {note?: {author,text,kind?}}) => Promise<{updated: string[], unchanged: string[], applyId: string, newHashes: Record<string,string>}>  — alias of heavyApply、note attach optional",
+  recompress: "(fileUrls: string[], rootId: string, editedView: string, depth: number, opts?: {applyId?, note?}) => Promise<{updated: string[], unchanged: string[], applyId: string | null, newHashes: Record<string,string>}>  — alias of heavyApply、note attach optional",
   heavy:      "(fileUrls: string[], rootId: string, depth: number) => Promise<string>  — codec decompress の実体名(ai-desk v2 互換)",
-  heavyApply: "(fileUrls: string[], rootId: string, content: string, depth: number, opts?: {note?: {...}}) => Promise<{...}>  — codec recompress の実体名",
+  heavyApply: "(fileUrls: string[], rootId: string, content: string, depth: number, opts?: {applyId?, note?: {...}}) => Promise<{updated, unchanged, applyId, newHashes}>  — codec recompress の実体名",
 
   // --- Read(versions / notes 閲覧、副作用なし)---
   history:    "(fileUrl) => Promise<Version[]>  — 時系列で versions を返す",
