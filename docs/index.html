@@ -151,9 +151,7 @@
       display: grid;
       align-items: center;
       padding: 76px 32px 84px;
-      background:
-        radial-gradient(ellipse 70% 60% at 50% 50%, rgba(248, 245, 237, 0.95) 0%, rgba(248, 245, 237, 0.45) 55%, rgba(248, 245, 237, 0) 80%),
-        var(--paper);
+      background: var(--paper);
       border-bottom: 1px solid var(--line);
     }
 
@@ -161,7 +159,9 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      opacity: 0.42;
+      opacity: 0.6;
+      mask-image: radial-gradient(ellipse 58% 56% at 50% 50%, transparent 0%, transparent 28%, rgba(0, 0, 0, 0.55) 58%, black 82%);
+      -webkit-mask-image: radial-gradient(ellipse 58% 56% at 50% 50%, transparent 0%, transparent 28%, rgba(0, 0, 0, 0.55) 58%, black 82%);
     }
 
     .artifact-field pre,
@@ -228,13 +228,20 @@
       z-index: 2;
       width: min(900px, 100%);
       margin: 0 auto;
-      padding: 44px 48px 48px;
-      background: rgba(248, 245, 237, 0.88);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(215, 204, 186, 0.7);
-      border-radius: 14px;
-      box-shadow: 0 12px 36px rgba(23, 21, 17, 0.08);
+      padding: 36px 0 40px;
+    }
+
+    .hero-copy::before {
+      content: "";
+      position: absolute;
+      inset: -24px -56px;
+      z-index: -1;
+      background: rgba(248, 245, 237, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      mask-image: radial-gradient(ellipse 78% 78% at 50% 50%, black 30%, rgba(0, 0, 0, 0.55) 60%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 50%, black 30%, rgba(0, 0, 0, 0.55) 60%, transparent 100%);
+      pointer-events: none;
     }
 
     .eyebrow {
@@ -637,7 +644,11 @@
       }
 
       .hero-copy {
-        padding: 32px 24px 36px;
+        padding: 28px 0 32px;
+      }
+
+      .hero-copy::before {
+        inset: -16px -24px;
       }
 
       .artifact-field pre {
