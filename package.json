@@ -1,0 +1,16 @@
+{
+  "name": "yume-files",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Reference implementation of the .yume.js file format — history-bearing JS files with co-located multi-version runtime",
+  "main": "runtimes/ver001.handle.yume.js",
+  "scripts": {
+    "test": "node e2e.js",
+    "spec": "node AiRunAndRead_BLOCKFILE.js"
+  },
+  "license": "MIT",
+  "author": "沖井広行 / AoyamaRito",
+  "engines": {
+    "node": ">=20"
+  }
+}
