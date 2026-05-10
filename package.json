@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node e2e.js",
     "spec": "node BLOCKFILE.aiDoc.yume.js show head",
-    "runbook": "node runAndReadMe.aiDoc.yume.js show head"
+    "runbook": "node runAndReadMe.aiDoc.yume.js show head",
+    "cover": "node cover.js"
   },
   "license": "MIT",
   "author": "沖井広行 / AoyamaRito",

@@ -19,6 +19,7 @@ This repository defines the portable `.yume.js` file format and its zero-depende
 - Use `notes` for mutable intent and commentary. Use `applyId` when one AI operation spans multiple files.
 - Use `heavy` for related context, `impact` for reverse-reference blast radius, and `refs-check` for graph health.
 - Treat `*.spec.yume.js` as a planned domain for unit case tables. Strategy: do not block on unit tests during coding; verify at e2e time that every spec case is covered by an actual e2e path. Schema is ad-hoc in Phase 1 (`runtime.spec.yume.js`); will harden once real usage proves the shape.
+- `cover.js` (Phase 2.0) runs the spec table through a Proxy-wrapped runtime and reports declared-fn drift and runtime-export coverage. The runtime itself is not instrumented. Phase 2.1 will extend the same hook to `e2e.js` to answer "did e2e exercise every spec case?".
 - Keep Markdown/HTML docs aligned when public usage changes.
 
 ## Common Commands
