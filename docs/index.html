@@ -1175,35 +1175,38 @@ export const chapterOne = "...";
     <section id="commands" class="section dark" aria-labelledby="commands-title">
       <div class="wrap">
         <p class="eyebrow" data-i18n="commands.eyebrow">Commands</p>
-        <h2 id="commands-title" data-i18n="commands.title">Try the reference runtime.</h2>
-        <p class="section-lead" data-i18n="commands.lead">Node.js 20 or newer is enough. The runtime ships in this repository.</p>
+        <h2 id="commands-title" data-i18n="commands.title">The AI calls these. You stay in natural language.</h2>
+        <p class="section-lead" data-i18n="commands.lead">These commands are the interface an AI assistant — Gemini CLI, Claude Code, Codex, and so on — uses while working on your `.yume.js` files. As the human, you keep talking in natural language; the agent handles the snapshot, rollback, and heavy/heavy-apply loop behind the scenes. The `.yume.js` file is its own CLI, so there is no separate tool to install. Node.js 20 or newer is enough.</p>
         <div class="command-grid">
           <div class="command">
-            <p data-i18n="commands.cmd1.label">Run the full e2e suite</p>
-            <pre><code>npm test</code></pre>
+            <p data-i18n="commands.cmd1.label">Snapshot the current HEAD as a new version</p>
+            <pre><code>node chapter-07.draft.yume.js commit \
+  --note "tightened opening"</code></pre>
           </div>
           <div class="command">
-            <p data-i18n="commands.cmd2.label">Show history and current content</p>
-            <pre><code>node examples/hello.fn.yume.js history
-node examples/hello.fn.yume.js show head</code></pre>
+            <p data-i18n="commands.cmd2.label">Browse history, show a version, diff two versions</p>
+            <pre><code>node chapter-07.draft.yume.js history
+node chapter-07.draft.yume.js show head
+node chapter-07.draft.yume.js diff 0 -1</code></pre>
           </div>
           <div class="command">
-            <p data-i18n="commands.cmd3.label">Expand context for AI editing</p>
-            <pre><code>node examples/hello.fn.yume.js heavy hello 1 .</code></pre>
+            <p data-i18n="commands.cmd3.label">Roll back to a previous version</p>
+            <pre><code>node chapter-07.draft.yume.js rollback -1 \
+  --note "restore earlier draft"</code></pre>
           </div>
           <div class="command">
-            <p data-i18n="commands.cmd4.label">Apply an edited heavy view</p>
-            <pre><code>node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . \
-  --note "AI edited view"</code></pre>
+            <p data-i18n="commands.cmd4.label">Add or correct an intent note on a version</p>
+            <pre><code>node chapter-07.draft.yume.js note-add head \
+  "why this version exists"</code></pre>
           </div>
           <div class="command">
-            <p data-i18n="commands.cmd5.label">Check reverse impact</p>
-            <pre><code>node examples/hello.fn.yume.js impact hello 1 .</code></pre>
+            <p data-i18n="commands.cmd5.label">Expand context for AI editing (heavy)</p>
+            <pre><code>node chapter-07.draft.yume.js heavy chapterSeven 1 .</code></pre>
           </div>
           <div class="command">
-            <p data-i18n="commands.cmd6.label">Validate the refs graph</p>
-            <pre><code>node examples/hello.fn.yume.js refs-check .
-node examples/hello.fn.yume.js refs-check . --json</code></pre>
+            <p data-i18n="commands.cmd6.label">Apply the AI-edited view back (heavy-apply)</p>
+            <pre><code>node chapter-07.draft.yume.js heavy-apply view.txt \
+  chapterSeven 1 . --note "AI revised opening"</code></pre>
           </div>
         </div>
       </div>
@@ -1339,15 +1342,15 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "principles.step3.body": "The v001 scanner avoids AST package dependencies and favors portable folder movement.",
         "principles.step4.title": "Keep AI context narrow.",
         "principles.step4.body": "Use refs, heavy, impact, and refs-check to send the model the smallest useful slice.",
-        "commands.eyebrow": "Commands",
-        "commands.title": "Try the reference runtime.",
-        "commands.lead": "Node.js 20 or newer is enough. The runtime ships in this repository.",
-        "commands.cmd1.label": "Run the full e2e suite",
-        "commands.cmd2.label": "Show history and current content",
-        "commands.cmd3.label": "Expand context for AI editing",
-        "commands.cmd4.label": "Apply an edited heavy view",
-        "commands.cmd5.label": "Check reverse impact",
-        "commands.cmd6.label": "Validate the refs graph",
+        "commands.eyebrow": "Commands · for AI agents",
+        "commands.title": "The AI calls these. You stay in natural language.",
+        "commands.lead": "These commands are the interface an AI assistant — Gemini CLI, Claude Code, Codex, and so on — uses while working on your `.yume.js` files. As the human, you keep talking in natural language; the agent handles the snapshot, rollback, and heavy/heavy-apply loop behind the scenes. The `.yume.js` file is its own CLI, so there is no separate tool to install. Node.js 20 or newer is enough.",
+        "commands.cmd1.label": "Snapshot the current HEAD as a new version",
+        "commands.cmd2.label": "Browse history, show a version, diff two versions",
+        "commands.cmd3.label": "Roll back to a previous version",
+        "commands.cmd4.label": "Add or correct an intent note on a version",
+        "commands.cmd5.label": "Expand context for AI editing (heavy)",
+        "commands.cmd6.label": "Apply the AI-edited view back (heavy-apply)",
         "final.eyebrow": "Status",
         "final.title": "Small enough to inspect. Strong enough to build on.",
         "final.lead": "yume-files is intentionally conservative: one format, one v001 runtime, zero dependencies, and focused e2e coverage. The next phase is real-world use: novels, specs, workflows, templates, and codebases.",
@@ -1447,15 +1450,15 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "principles.step3.body": "v001 スキャナは AST パッケージ依存を避け、ポータブルなフォルダ移動を優先します。",
         "principles.step4.title": "AI 文脈は狭く保つ。",
         "principles.step4.body": "refs・heavy・impact・refs-check を使い、最小で有用なスライスをモデルに渡します。",
-        "commands.eyebrow": "コマンド",
-        "commands.title": "リファレンスランタイムを試す。",
-        "commands.lead": "Node.js 20 以降があれば十分です。ランタイムはこのリポジトリに同梱されています。",
-        "commands.cmd1.label": "e2e フルスイートを実行",
-        "commands.cmd2.label": "履歴と現在のコンテンツを表示",
-        "commands.cmd3.label": "AI 編集用に文脈を展開",
-        "commands.cmd4.label": "編集された heavy ビューを反映",
-        "commands.cmd5.label": "逆インパクトを確認",
-        "commands.cmd6.label": "参照グラフを検証",
+        "commands.eyebrow": "コマンド · AI エージェント向け",
+        "commands.title": "叩くのは AI、人間は自然言語のままで。",
+        "commands.lead": "これらは Gemini CLI、Claude Code、Codex などの AI アシスタントが `.yume.js` を編集するときに叩くインターフェースです。人間は自然言語で対話を続けるだけで、commit・rollback・heavy / heavy-apply の往復は AI が裏でこなします。`.yume.js` ファイル自身が CLI なので、別ツールのインストールは不要。Node.js 20 以降があれば十分です。",
+        "commands.cmd1.label": "現在の HEAD を新しいバージョンとして commit",
+        "commands.cmd2.label": "履歴の閲覧、特定バージョンの表示、差分",
+        "commands.cmd3.label": "前のバージョンへ rollback",
+        "commands.cmd4.label": "バージョンに意図ノートを追記・訂正",
+        "commands.cmd5.label": "AI 編集用に文脈を展開 (heavy)",
+        "commands.cmd6.label": "AI 編集後の view を反映 (heavy-apply)",
         "final.eyebrow": "状況",
         "final.title": "検査できるほど小さく、上に積めるほど確か。",
         "final.lead": "yume-files は意図して保守的です: 一つのフォーマット、一つの v001 ランタイム、ゼロ依存、絞った e2e カバレッジ。次の段階は実利用: 小説・仕様・ワークフロー・テンプレート・コードベース。",
