@@ -1642,7 +1642,7 @@ function splitDiffLines(text) {
 // ============================================================
 // squash — zlib base64 self-compression for old versions
 // ============================================================
-export async function squash(fileUrl, keep = 10) {
+export async function squash(fileUrl, keep = 50) {
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -1780,7 +1780,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     case 'squash': {
-      const { squashedCount } = await squash(fileUrl, argv[3] || 10);
+      const { squashedCount } = await squash(fileUrl, argv[3] || 50);
       console.log(`squashed ${squashedCount} versions.`);
       return;
     }
