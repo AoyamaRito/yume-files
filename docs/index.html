@@ -1052,8 +1052,8 @@
     </a>
     <div class="topbar-right">
       <nav>
-        <a href="#format" data-i18n="nav.format">Format</a>
         <a href="#usage" data-i18n="nav.usage">Usage</a>
+        <a href="#format" data-i18n="nav.format">Format</a>
         <a href="#architecture" data-i18n="nav.arch">Architecture</a>
         <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
         <a href="#fiction" data-i18n="nav.fiction">Fiction</a>
@@ -1135,6 +1135,47 @@ export const chapterOne = `
           <h3 data-i18n="why.card3.title">Portable, no service</h3>
           <p data-i18n="why.card3.body">Move it, copy it, share it. No database, no server, no installer — just Node and the file.</p>
         </article>
+      </div>
+    </section>
+
+    <section id="usage" class="section" aria-labelledby="usage-title">
+      <div class="narrow">
+        <p class="eyebrow" data-i18n="usage.eyebrow">Usage</p>
+        <h2 id="usage-title" data-i18n="usage.title">A simple way to use yume-files with an AI agent.</h2>
+        <p class="section-lead" data-i18n="usage.lead">Start by giving the agent the repository and one clear instruction. The runbook tells it what to read, how to edit, and how to verify the result.</p>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step1.title">Ask it to read the runbook first.</h3>
+              <p data-i18n-html="usage.step1.body">Point the AI at <code>AGENTS.md</code> and <code>runAndReadMe.aiDoc.yume.js</code>. It should consult <code>BLOCKFILE.aiDoc.yume.js</code> only for exact format details.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step2.title">Describe the file you want.</h3>
+              <p data-i18n-html="usage.step2.body">Use domain-shaped names such as <code>novel.world.yume.js</code>, <code>review.workflow.yume.js</code>, <code>doc.template.yume.js</code>, or <code>chapter.draft.yume.js</code>.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step3.title">Require validation before it stops.</h3>
+              <p data-i18n-html="usage.step3.body">For yume files, the AI should edit <code>HEAD</code>, commit through the runtime, then run <code>validate</code>, <code>refs-check .</code>, and <code>npm test</code> when needed.</p>
+            </div>
+          </div>
+        </div>
+        <div class="usage-prompt">
+          <div>
+            <h3 data-i18n="usage.prompt.title">Starter prompt</h3>
+            <p data-i18n="usage.prompt.body">Copy this one line into an AI assistant after opening the repository.</p>
+          </div>
+          <div>
+            <div class="usage-prompt-actions">
+              <span class="label" data-i18n="usage.prompt.label">One-line prompt</span>
+              <button type="button" class="copy-prompt" data-i18n="usage.prompt.copy">Copy</button>
+            </div>
+            <pre><code data-prompt-code data-i18n="usage.prompt.code">Read @yume-files first, then follow its runbook for my next instructions.</code></pre>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1463,47 +1504,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
             <h3 data-i18n="uses.card6.title">Documentation</h3>
             <p data-i18n="uses.card6.body">Bind generated docs to the templates, workflows, and decisions that shaped them.</p>
           </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="usage" class="section" aria-labelledby="usage-title">
-      <div class="narrow">
-        <p class="eyebrow" data-i18n="usage.eyebrow">Usage</p>
-        <h2 id="usage-title" data-i18n="usage.title">A simple way to use yume-files with an AI agent.</h2>
-        <p class="section-lead" data-i18n="usage.lead">Start by giving the agent the repository and one clear instruction. The runbook tells it what to read, how to edit, and how to verify the result.</p>
-        <div class="steps">
-          <div class="step">
-            <div>
-              <h3 data-i18n="usage.step1.title">Ask it to read the runbook first.</h3>
-              <p data-i18n-html="usage.step1.body">Point the AI at <code>AGENTS.md</code> and <code>runAndReadMe.aiDoc.yume.js</code>. It should consult <code>BLOCKFILE.aiDoc.yume.js</code> only for exact format details.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div>
-              <h3 data-i18n="usage.step2.title">Describe the file you want.</h3>
-              <p data-i18n-html="usage.step2.body">Use domain-shaped names such as <code>novel.world.yume.js</code>, <code>review.workflow.yume.js</code>, <code>doc.template.yume.js</code>, or <code>chapter.draft.yume.js</code>.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div>
-              <h3 data-i18n="usage.step3.title">Require validation before it stops.</h3>
-              <p data-i18n-html="usage.step3.body">For yume files, the AI should edit <code>HEAD</code>, commit through the runtime, then run <code>validate</code>, <code>refs-check .</code>, and <code>npm test</code> when needed.</p>
-            </div>
-          </div>
-        </div>
-        <div class="usage-prompt">
-          <div>
-            <h3 data-i18n="usage.prompt.title">Starter prompt</h3>
-            <p data-i18n="usage.prompt.body">Copy this one line into an AI assistant after opening the repository.</p>
-          </div>
-          <div>
-            <div class="usage-prompt-actions">
-              <span class="label" data-i18n="usage.prompt.label">One-line prompt</span>
-              <button type="button" class="copy-prompt" data-i18n="usage.prompt.copy">Copy</button>
-            </div>
-            <pre><code data-prompt-code data-i18n="usage.prompt.code">Read @yume-files first, then follow its runbook for my next instructions.</code></pre>
-          </div>
         </div>
       </div>
     </section>
