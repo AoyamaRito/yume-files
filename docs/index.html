@@ -711,11 +711,46 @@
     }
 
     .author-real {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 1.04rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+      margin: 6px 0 0;
+      color: var(--ink);
+      font-size: 1.08rem;
       font-weight: 700;
       letter-spacing: 0.02em;
+    }
+
+    .author-card h2 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .name-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .author-card h2 .name-meta {
+      font-size: 0.95rem;
+    }
+
+    .author-real .equals {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border: 1.5px solid var(--rust);
+      border-radius: 999px;
+      color: var(--rust);
+      font-size: 0.92rem;
+      font-weight: 900;
+      line-height: 1;
     }
 
     .author-bio {
@@ -1192,8 +1227,15 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
     <section id="author" class="section band" aria-labelledby="author-title">
       <div class="narrow author-card">
         <p class="eyebrow" data-i18n="author.eyebrow">Author</p>
-        <h2 id="author-title">AOYAMA Rito · 蒼山りと</h2>
-        <p class="author-real">OKINOI Hiroyuki · 沖井広行</p>
+        <h2 id="author-title">
+          <span>AOYAMA Rito · 蒼山りと</span>
+          <span class="name-meta" data-i18n="author.pen_label">(pen name)</span>
+        </h2>
+        <p class="author-real">
+          <span class="equals" aria-hidden="true">=</span>
+          <span>OKINOI Hiroyuki · 沖井広行</span>
+          <span class="name-meta" data-i18n="author.real_label">(real name — same person)</span>
+        </p>
         <p class="author-bio" data-i18n="author.bio">
           Former Namco programmer. Designed the real-time 18-machine networking for the Ridge Racer racing series on PSP, PS3, and Xbox 360. Connections of the era ranged from ISDN down to dial-up modems — and it ran even on modems. Patented.
         </p>
@@ -1312,6 +1354,8 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "final.cta1": "Open the repository",
         "final.cta2": "Read the aiDoc spec",
         "author.eyebrow": "Author",
+        "author.pen_label": "(pen name)",
+        "author.real_label": "(real name — same person)",
         "author.bio": "Former Namco programmer. Designed the real-time 18-machine networking for the Ridge Racer racing series on PSP, PS3, and Xbox 360. Connections of the era ranged from ISDN down to dial-up modems — and it ran even on modems. Patented.",
         "footer.left": "MIT License · yume-files",
         "footer.right": ".yume.js foundation file format for AI work"
@@ -1418,6 +1462,8 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "final.cta1": "リポジトリを開く",
         "final.cta2": "aiDoc 仕様を読む",
         "author.eyebrow": "著者",
+        "author.pen_label": "（ペンネーム）",
+        "author.real_label": "（本名・同一人物）",
         "author.bio": "元 Namco プログラマ。PSP・PS3・Xbox 360 のレースゲーム『リッジレーサー』シリーズで、18 台同時対戦のリアルタイム通信を実装。当時の回線は ISDN からダイヤルアップモデムまで幅があり、そのモデムでも動かした。その方式で特許を取得。",
         "footer.left": "MIT License · yume-files",
         "footer.right": "AI 作業のための .yume.js ファンデーションファイル形式"
