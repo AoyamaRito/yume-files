@@ -10,7 +10,7 @@
 //   - atomicWrite(tmp + rename)
 //   - acquireLock(stale recovery 込み)
 //   - validateBlock(hash chain / schema sanity)
-//   - heavy / heavyApply codec(decompress / recompress aliases)
+//   - heavy / heavyApply codec
 //   - commitManual(boundary case、AI 不在の人手編集救済)
 //   - history / show / diff / rollback
 //   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
@@ -895,17 +895,13 @@ export async function refsCheck(fileUrls) {
 }
 
 // ============================================================
-// codec — heavy/decompress and heavyApply/recompress
+// codec — heavy and heavyApply
 // ============================================================
 export async function heavy(fileUrls, rootId = '*', depth = 1) {
   globalThis.__yumeCoverHook?.('heavy', arguments);
   const entries = await loadYumeEntries(fileUrls);
   const selected = selectHeavyEntries(entries, rootId, normalizeDepth(depth));
   return serializeHeavyView(selected, rootId, depth);
-}
-
-export async function decompress(fileUrls, rootId = '*', depth = 1) {
-  return heavy(fileUrls, rootId, depth);
 }
 
 export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}) {
@@ -972,10 +968,6 @@ export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}
   }
 
   return { updated, unchanged, applyId, newHashes };
-}
-
-export async function recompress(fileUrls, rootId, editedView, depth = 1, opts = {}) {
-  return heavyApply(fileUrls, rootId, editedView, depth, opts);
 }
 
 async function loadYumeEntries(fileUrls) {
@@ -1745,8 +1737,7 @@ export async function cli(fileUrl, block, argv) {
       }
       return;
     }
-    case 'heavy':
-    case 'decompress': {
+    case 'heavy': {
       const rootId = argv[3] ?? block.id;
       const depth = parseDepthArg(argv[4], 1);
       const inputs = positionalArgs(argv, 5);
@@ -1754,8 +1745,7 @@ export async function cli(fileUrl, block, argv) {
       process.stdout.write(await heavy(files, rootId, depth));
       return;
     }
-    case 'heavy-apply':
-    case 'recompress': {
+    case 'heavy-apply': {
       const viewPath = argv[3];
       if (!viewPath) return usage(`${verb} <viewFile|-> [rootId] [depth] [fileOrFolder...]`);
       const rootId = argv[4] ?? block.id;
@@ -1948,7 +1938,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, decompress, recompress, show, diff, rollback, validate, refs, tags, impact, refs-check, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, show, diff, rollback, validate, refs, tags, impact, refs-check, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }

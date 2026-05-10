@@ -95,7 +95,7 @@ handle     runtime / handler infrastructure
 - `HEAD` region には現在の実コードを置きます。
 - `BOOT` region から co-located runtime を呼び出せます。
 - runtime version を file 側で pin するため、古い file は古い runtime のまま動かせます。
-- v001 runtime は `commit` / `history` / `heavy` / `heavy-apply` / `decompress` / `recompress` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `impact` / `refs-check` / `note-*` / `notes-search` / `apply-*` を提供します。
+- v001 runtime は `commit` / `history` / `heavy` / `heavy-apply` / `show` / `diff` / `rollback` / `validate` / `refs` / `tags` / `impact` / `refs-check` / `note-*` / `notes-search` / `apply-*` を提供します。
 - `notes` は変更理由や意図を書く mutable layer です。version hash には含めません。
 - `applyId` は一連の操作で生まれた version を束ねる ID です。apply 全体にも note を付けられます。
 - `heavy` で関連 Block を AI が編集しやすい text view に展開し、`heavy-apply` で `.yume.js` に戻せます。
@@ -403,7 +403,7 @@ In short, `yume-files` is a substrate for file-level history, intent, and AI ope
 - The `HEAD` region contains the current source code.
 - The optional `BOOT` region can invoke a co-located runtime.
 - Runtime versions are pinned per file, so older files can keep using older runtimes.
-- The v001 runtime currently supports `commit`, `history`, `heavy`, `heavy-apply`, `decompress`, `recompress`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `impact`, `refs-check`, `note-*`, `notes-search`, and `apply-*`.
+- The v001 runtime currently supports `commit`, `history`, `heavy`, `heavy-apply`, `show`, `diff`, `rollback`, `validate`, `refs`, `tags`, `impact`, `refs-check`, `note-*`, `notes-search`, and `apply-*`.
 - `notes` is a mutable commentary layer for intent and reasoning. It is not included in version hashes.
 - `applyId` groups versions produced by the same operation. Notes can also be attached to an apply group.
 - `heavy` expands related Blocks into an AI-editable text view, and `heavy-apply` writes that view back into `.yume.js` files.
