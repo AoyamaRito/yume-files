@@ -21,6 +21,10 @@ All notable changes to `yume-files` are summarized here.
 - Shortened the web starter prompt and added a copy button.
 - Clarified that the v001 runtime remains zero-dependency and avoids AST package dependencies.
 
+### Decided against
+
+- Did not adopt zlib/base64 self-compression (squash) of `__block.versions[]`. The substrate value of `.yume.js` depends on history staying plaintext and AI/grep readable; the added bug surface (decompression side-effects in `validateBlock`, missing GC of orphaned compressed payloads, rollback integrity, parse cost) was judged uneconomical against the bounded size savings. The full experiment is preserved on branch `feat/zlib-self-compression` for reference.
+
 ### Verified
 
 - `npm test`
