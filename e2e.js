@@ -27,6 +27,23 @@ import {
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
 } from './runtimes/ver001.handle.yume.js';
 
+// Phase 2.1 coverage hook: only active under cover.js --e2e (env-gated, zero
+// effect for plain `npm test`). Records which runtime fns get called and
+// dumps to YUME_COVER_OUT on exit.
+if (process.env.YUME_COVER) {
+  const { writeFileSync } = await import('node:fs');
+  const calls = new Map();
+  globalThis.__yumeCoverHook = (name, args) => {
+    if (!calls.has(name)) calls.set(name, []);
+    calls.get(name).push(Array.from(args));
+  };
+  process.on('exit', () => {
+    if (process.env.YUME_COVER_OUT) {
+      writeFileSync(process.env.YUME_COVER_OUT, JSON.stringify([...calls.entries()]));
+    }
+  });
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HELLO_SRC = join(HERE, 'examples', 'hello.fn.yume.js');
 const RUNTIME_SRC = join(HERE, 'runtimes', 'ver001.handle.yume.js');
