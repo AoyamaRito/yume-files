@@ -705,6 +705,47 @@
       font-size: 0.98rem;
     }
 
+    .arch-flow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 38px;
+    }
+
+    .arch-step {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .arch-step h3 {
+      margin: 14px 0 8px;
+    }
+
+    .arch-step p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .arch-step code {
+      color: var(--teal);
+      font-size: 0.86em;
+    }
+
+    .arch-num {
+      display: inline-grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--rust);
+      border-radius: 8px;
+      color: var(--rust);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+      font-weight: 800;
+      font-size: 0.94rem;
+    }
+
     .author-card {
       display: grid;
       gap: 6px;
@@ -853,6 +894,10 @@
       .step {
         grid-template-columns: 1fr;
       }
+
+      .arch-flow {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -865,6 +910,7 @@
     <div class="topbar-right">
       <nav>
         <a href="#format" data-i18n="nav.format">Format</a>
+        <a href="#architecture" data-i18n="nav.arch">Architecture</a>
         <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
         <a href="#fiction" data-i18n="nav.fiction">Fiction</a>
         <a href="#commands" data-i18n="nav.commands">Commands</a>
@@ -1018,6 +1064,57 @@ export const __block = {
 // @ref: uses ./world.yume.js
 export const chapterOne = "...";
 <span class="accent">// === /HEAD ===</span></code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section" aria-labelledby="architecture-title">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow" data-i18n="arch.eyebrow">Architecture</p>
+          <h2 id="architecture-title" data-i18n="arch.title">Each file boots itself, then hands control to its pinned runtime.</h2>
+          <p class="section-lead" data-i18n="arch.lead">
+            A `filename.domain.yume.js` file declares the runtime version it expects in its embedded Block. Running it with Node fires a small BOOT region that dynamically imports the matching `runtimes/verNNN.handle.yume.js` and hands the runtime the file's URL, the Block data, and argv. The runtime then reads, parses, and rewrites the same file — appending versions, updating HEAD, editing notes — without any external service.
+          </p>
+        </div>
+        <div class="code-panel" aria-label="Embedded BOOT block delegating to a pinned runtime">
+          <div class="code-title"><span data-i18n="arch.code.left">BOOT region</span><span data-i18n="arch.code.right">runtime delegation</span></div>
+          <pre><code><span class="accent">// @yume-format: 1</span>
+export const __block = {
+  "id": "chapterSeven",
+  "runtime": { "name": "yume", "version": "001" },
+  "versions": [ /* ... */ ]
+};
+
+<span class="accent">// === HEAD ===</span>
+export const chapterSeven = "...";
+<span class="accent">// === /HEAD ===</span>
+
+<span class="accent">// === BOOT ===</span>
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const path = __block.runtime.path
+    ?? `../runtimes/ver${__block.runtime.version}.handle.yume.js`;
+  const rt = await import(path);
+  await rt.cli(import.meta.url, __block, process.argv);
+}
+<span class="accent">// === /BOOT ===</span></code></pre>
+        </div>
+      </div>
+      <div class="wrap arch-flow">
+        <div class="arch-step">
+          <span class="arch-num">01</span>
+          <h3 data-i18n="arch.step1.title">The Block carries its runtime version</h3>
+          <p data-i18n-html="arch.step1.body"><code>__block.runtime = { name: "yume", version: "001" }</code> pins the version. Older files keep their old runtime, no matter what newer files do.</p>
+        </div>
+        <div class="arch-step">
+          <span class="arch-num">02</span>
+          <h3 data-i18n="arch.step2.title">BOOT loads the matching runtime</h3>
+          <p data-i18n-html="arch.step2.body"><code>node chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.</p>
+        </div>
+        <div class="arch-step">
+          <span class="arch-num">03</span>
+          <h3 data-i18n="arch.step3.title">The runtime self-analyzes and rewrites the file</h3>
+          <p data-i18n="arch.step3.body">It opens the same file, parses its Block + HEAD + BOOT regions, mutates them in place (append a version, update HEAD, edit notes), and writes the file back. The file is its own micro-repository.</p>
         </div>
       </div>
     </section>
@@ -1257,6 +1354,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
     const i18n = {
       en: {
         "nav.format": "Format",
+        "nav.arch": "Architecture",
         "nav.workflow": "Workflow",
         "nav.fiction": "Fiction",
         "nav.commands": "Commands",
@@ -1288,6 +1386,17 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "format.lead": "The file remains readable with a JS parser. The runtime does not need a database, server, AST package, or sidecar store.",
         "format.code.left": "minimal shape",
         "format.code.right": "zero dependency",
+        "arch.eyebrow": "Architecture",
+        "arch.title": "Each file boots itself, then hands control to its pinned runtime.",
+        "arch.lead": "A `filename.domain.yume.js` file declares the runtime version it expects in its embedded Block. Running it with Node fires a small BOOT region that dynamically imports the matching `runtimes/verNNN.handle.yume.js` and hands the runtime the file's URL, the Block data, and argv. The runtime then reads, parses, and rewrites the same file — appending versions, updating HEAD, editing notes — without any external service.",
+        "arch.code.left": "BOOT region",
+        "arch.code.right": "runtime delegation",
+        "arch.step1.title": "The Block carries its runtime version",
+        "arch.step1.body": "<code>__block.runtime = { name: \"yume\", version: \"001\" }</code> pins the version. Older files keep their old runtime, no matter what newer files do.",
+        "arch.step2.title": "BOOT loads the matching runtime",
+        "arch.step2.body": "<code>node chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.",
+        "arch.step3.title": "The runtime self-analyzes and rewrites the file",
+        "arch.step3.body": "It opens the same file, parses its Block + HEAD + BOOT regions, mutates them in place (append a version, update HEAD, edit notes), and writes the file back. The file is its own micro-repository.",
         "workflow.eyebrow": "Workflow",
         "workflow.title": "Expand only what matters. Apply only what changed.",
         "workflow.lead": "`heavy` creates an AI-editable view from a root Block and its dependencies. `heavy-apply` writes the edited view back and appends new versions only where content changed.",
@@ -1365,6 +1474,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
       },
       jp: {
         "nav.format": "フォーマット",
+        "nav.arch": "アーキテクチャ",
         "nav.workflow": "ワークフロー",
         "nav.fiction": "創作",
         "nav.commands": "コマンド",
@@ -1396,6 +1506,17 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "format.lead": "ファイルは JS パーサで読めるままです。ランタイムにデータベース・サーバ・AST パッケージ・サイドカーストアは不要です。",
         "format.code.left": "最小構成",
         "format.code.right": "ゼロ依存",
+        "arch.eyebrow": "アーキテクチャ",
+        "arch.title": "ファイル自身が起動し、固定されたランタイムへ処理を渡す。",
+        "arch.lead": "`filename.domain.yume.js` ファイルは、内蔵 Block に自分が期待するランタイムバージョンを宣言しています。Node で実行すると、内部の小さな BOOT 領域が `runtimes/verNNN.handle.yume.js` 配下の対応ランタイムを動的 import し、ファイル URL・Block データ・argv をランタイムに渡します。ランタイムは同じファイルを読み・解析し・書き戻します ── 新バージョンの追記、HEAD の更新、ノート編集まで、外部サービスなしで。",
+        "arch.code.left": "BOOT 領域",
+        "arch.code.right": "ランタイム委譲",
+        "arch.step1.title": "Block が自分のランタイムバージョンを保持",
+        "arch.step1.body": "<code>__block.runtime = { name: \"yume\", version: \"001\" }</code> がバージョンを固定。新しいファイルが何をしようと、古いファイルは古いランタイムのまま読める。",
+        "arch.step2.title": "BOOT が対応ランタイムを読み込む",
+        "arch.step2.body": "<code>node chapter-07.draft.yume.js commit</code> が <code>runtimes/ver001.handle.yume.js</code> を動的 import。インストーラもグローバルサービスも不要 ── Node とローカルファイルだけ。",
+        "arch.step3.title": "ランタイムが自己解析して、ファイルを書き戻す",
+        "arch.step3.body": "同じファイルを開き、Block + HEAD + BOOT 領域を解析、その場で書き換え (バージョン追記、HEAD 更新、ノート編集)、ファイルへ書き戻します。ファイル自身が自前の micro-repository です。",
         "workflow.eyebrow": "ワークフロー",
         "workflow.title": "必要なものだけ展開し、変わったものだけ反映する。",
         "workflow.lead": "`heavy` はルート Block と依存から AI 編集用ビューを作ります。`heavy-apply` は編集後ビューを書き戻し、内容が変わったファイルにだけ新しいバージョンを追記します。",
