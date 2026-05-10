@@ -14,7 +14,7 @@
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
-import { readFile, mkdir, rm, cp } from 'node:fs/promises';
+import { readFile, writeFile, stat, mkdir, rm, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -562,4 +562,51 @@ await rm(tmpDir, { recursive: true, force: true });
 // summary
 // ============================================================
 console.log(`\n=== ${pass} passed, ${fail} failed ===`);
+if (fail > 0) process.exit(1);
+
+// [11] squash / decompression (Zlib Self-Compression)
+{
+  console.log("\n[11] squash / decompression (Zlib Self-Compression)");
+  
+  const f = join(tmpDir, "squash.fn.yume.js");
+  const { squash } = await import('./runtimes/ver001.handle.yume.js'); await cp(HELLO_SRC, f);
+  let newHash;
+  for (let i = 1; i <= 5; i++) {
+    const src = await readFile(f, "utf8");
+    const changed = src.replace(/\/\/ === HEAD ===[\s\S]*?\/\/ === \/HEAD ===/, "// === HEAD ===\nexport function hello(name) { return \"" + "A".repeat(100*i) + "\"; }\n// === /HEAD ===");
+    await writeFile(f, changed);
+    const res = await commitManual(f);
+    if (!res.committed) throw new Error("commit failed");
+    newHash = res.newHash;
+  }
+  
+  const { validateBlock, parseBlock } = await import('./runtimes/ver001.handle.yume.js'); const sourceBefore = await readFile(f, 'utf8'); const vBefore = validateBlock(parseBlock(sourceBefore).block);
+  assert(vBefore.ok, "must be valid before squash");
+  
+  const sizeBefore = (await stat(f)).size;
+
+  const { squashedCount } = await squash(f, 2);
+  assert(squashedCount === 4, "should squash exactly 4 old versions (initial + 3 edits)");
+
+  const sizeAfter = (await stat(f)).size;
+  assert(sizeAfter < sizeBefore, "file size should decrease significantly");
+  
+  const sourceAfter = await readFile(f, 'utf8'); const vAfter = validateBlock(parseBlock(sourceAfter).block);
+  assert(vAfter.ok, "must remain valid after squash");
+
+  const { diff, history, rollback } = await import('./runtimes/ver001.handle.yume.js');
+  const hist = await history(f);
+  assert(hist.length === 6, "logical history length must remain 6");
+
+  const diffStr = await diff(f, 0, 1);
+  assert(diffStr.includes("return \"A"), "diff must be able to decompress and read old content");
+
+  await rollback(f, 0);
+  const rollbackHead = await readFile(f, "utf8");
+  assert(rollbackHead.includes("return \`hello"), "rollback must restore original content from squashed state");
+
+  
+}
+
+console.log("\n=== " + pass + " passed, " + fail + " failed ===");
 if (fail > 0) process.exit(1);
