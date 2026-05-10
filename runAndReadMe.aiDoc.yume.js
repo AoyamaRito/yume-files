@@ -136,7 +136,8 @@ export const RunAndReadMe = {
   purpose: [
     "Give an AI enough local context to operate .yume.js files without rereading the whole repository.",
     "Preserve the design intent: one portable JavaScript file can carry current content, history, refs, tags, notes, and apply groups.",
-    "Keep runtime v001 dependency-free so .yume.js remains easy to inspect, copy, archive, and run in constrained AI environments."
+    "Keep runtime v001 dependency-free so .yume.js remains easy to inspect, copy, archive, and run in constrained AI environments.",
+    "Provide concurrency safety out-of-the-box (file-level lock and atomic rename) to enable robust multi-agent collaboration."
   ],
 
   bootstrapInstruction: {
