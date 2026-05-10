@@ -34,6 +34,47 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 
 もちろん、通常の JavaScript file として実コードを書き、すべての変更履歴を追える file としても使えます。
 
+### 想定ユースケース
+
+`.yume.js` は「AI に繰り返し読ませたい文脈」を 1 file に閉じるための形式です。LLM に渡す時は、用途ごとに domain 名を分けると扱いやすくなります。
+
+- AI onboarding / runbook: `project.aiDoc.yume.js`、`runAndReadMe.aiDoc.yume.js`
+- 仕様・設計判断: `feature.spec.yume.js`、`api.contract.yume.js`、`decision.log.yume.js`
+- ワークフロー: `review.workflow.yume.js`、`release.workflow.yume.js`、`support.workflow.yume.js`
+- テンプレート: `doc.template.yume.js`、`pr.template.yume.js`、`prompt.template.yume.js`
+- 請求・見積・帳票: `invoice.template.yume.js`、`estimate.workflow.yume.js`、`billing.rules.yume.js`、`statement.draft.yume.js`
+- ピッチ・提案資料: `pitch.story.yume.js`、`deck.template.yume.js`、`slide.draft.yume.js`、`business-model.spec.yume.js`
+- 小説・創作: `novel.world.yume.js`、`mira.character.yume.js`、`voice.style.yume.js`、`chapter.draft.yume.js`
+- 研究・調査: `research.note.yume.js`、`source.index.yume.js`、`summary.template.yume.js`
+- 評価・レビュー: `rubric.spec.yume.js`、`eval.workflow.yume.js`、`qa.checklist.yume.js`
+- 実コード: `parser.fn.yume.js`、`renderer.module.yume.js`、`adapter.module.yume.js`
+- エージェント記憶: `team.rules.yume.js`、`project.memory.yume.js`、`coding.style.yume.js`
+
+請求書やピッチ資料のような実務 file では、顧客名・金額・案件名・個人情報は yume-files の公開サンプルに入れず、構造だけを template / workflow / spec として抽象化します。LLM に渡す file でも、公開する file と private data file を分けるのが安全です。
+
+LLM に親切な `.yume.js` では、HEAD に現在の内容、`refs` に関連 Block、`tags` に検索語、`notes` に変更理由、`applyId` に一連の作業単位を持たせます。これにより、AI は「どこを読むべきか」「何に影響するか」「なぜ変わったか」を小さい文脈で追えます。
+
+domain 名の目安:
+
+```txt
+aiDoc      AI が読む運用説明・runbook
+spec       仕様、制約、契約、評価基準
+workflow   手順、レビュー規則、運用フロー
+template   文書、プロンプト、出力形式の雛形
+story      ピッチや記事の構成、ナラティブ、説得順序
+deck       スライド資料の全体構成、デザイン規則
+slide      個別スライド、図表、コピー
+invoice    請求書や帳票の現在形
+billing    請求・見積・支払条件などの業務ルール
+world      世界観、前提、舞台設定
+character  キャラクター、声、関係性、状態
+style      文体、ブランドトーン、禁止表現
+draft      草稿、章、記事、生成物の現在形
+note       調査メモ、会議メモ、意思決定ログ
+fn/module  実行可能な JavaScript code
+handle     runtime / handler infrastructure
+```
+
 ### 何が嬉しいのか
 
 - AI が何度も編集しても、各ファイルの変化が file 内に append-only で残ります。
