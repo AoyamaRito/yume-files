@@ -18,6 +18,7 @@ This repository defines the portable `.yume.js` file format and its zero-depende
 - Do not introduce compression of `__block.versions[]` (e.g. zlib/base64 squash). The substrate value of `.yume.js` is that all history stays plaintext and AI/grep readable. This was tried on branch `feat/zlib-self-compression` and rejected: the added bug surface (decompression side-effects in `validateBlock`, GC of orphaned compressed payloads, rollback integrity, parse cost) outweighed the size savings, which are bounded in practice. If history bloat ever becomes a real problem, prefer moving old versions to a sibling `*.archive.yume.js` file in plaintext rather than compressing in place.
 - Use `notes` for mutable intent and commentary. Use `applyId` when one AI operation spans multiple files.
 - Use `heavy` for related context, `impact` for reverse-reference blast radius, and `refs-check` for graph health.
+- Treat `*.spec.yume.js` as a planned domain for unit case tables. Strategy: do not block on unit tests during coding; verify at e2e time that every spec case is covered by an actual e2e path. Schema is ad-hoc in Phase 1 (`runtime.spec.yume.js`); will harden once real usage proves the shape.
 - Keep Markdown/HTML docs aligned when public usage changes.
 
 ## Common Commands
