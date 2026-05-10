@@ -610,3 +610,68 @@ if (fail > 0) process.exit(1);
 
 console.log("\n=== " + pass + " passed, " + fail + " failed ===");
 if (fail > 0) process.exit(1);
+
+// [12] squash edge cases & resilience
+{
+  console.log("\n[12] squash edge cases & resilience");
+  const tmpDir = join(tmpdir(), "yume-files-e2e-" + process.pid + "-" + Date.now()); 
+  await mkdir(join(tmpDir, "runtimes"), { recursive: true }); 
+  await cp(RUNTIME_SRC, join(tmpDir, "runtimes", "ver001.handle.yume.js"));
+  const f = join(tmpDir, "edge.fn.yume.js");
+  await cp(HELLO_SRC, f);
+  
+  const rt = await import("./runtimes/ver001.handle.yume.js");
+
+  for (let i = 1; i <= 3; i++) {
+    let { block: curBlock, head, boot } = rt.parseBlock(await readFile(f, "utf8"));
+    head = "\nexport function test() { return \"edit " + i + "\"; }\n";
+    await writeFile(f, rt.serializeBlock({block: curBlock, head, boot}));
+    const res = await rt.commitManual(f);
+    assert(res.committed, "commit failed at " + i);
+  }
+  await rt.squash(f, 2);
+  let parsed = rt.parseBlock(await readFile(f, "utf8"));
+  assert(Object.keys(parsed.block.compressedContents).length === 2, "should have 2 compressed blobs");
+  
+  for (let i = 4; i <= 6; i++) {
+    let { block: curBlock, head, boot } = rt.parseBlock(await readFile(f, "utf8"));
+    head = "\nexport function test() { return \"edit " + i + "\"; }\n";
+    await writeFile(f, rt.serializeBlock({block: curBlock, head, boot}));
+    const res = await rt.commitManual(f);
+    assert(res.committed, "commit failed at " + i);
+  }
+  await rt.squash(f, 2);
+  parsed = rt.parseBlock(await readFile(f, "utf8"));
+  assert(Object.keys(parsed.block.compressedContents).length === 5, "should accumulate blobs to 5");
+  assert(rt.validateBlock(rt.parseBlock(await readFile(f, 'utf8')).block).ok, 'must remain valid after double squash');
+
+  const view = await rt.heavy([f], "hello", 1);
+  assert(view.includes("return \"edit 6\";"), "heavy must read HEAD correctly");
+  
+  const changedView = view.replace("return \"edit 6\";", "return \"edit 7 via codec\";");
+  await rt.heavyApply([f], "hello", changedView, 1);
+  parsed = rt.parseBlock(await readFile(f, "utf8"));
+  assert(Object.keys(parsed.block.compressedContents).length === 5, "heavyApply must NOT erase compressedContents");
+  
+  const targetHash = Object.keys(parsed.block.compressedContents)[0];
+  delete parsed.block.compressedContents[targetHash];
+  await writeFile(f, rt.serializeBlock(parsed));
+  console.log("targetHash is", targetHash); console.log("is deleted?", parsed.block.compressedContents[targetHash] === undefined); let threwMissing = false;
+  try { const raw = await readFile(f, "utf8"); const p = rt.parseBlock(raw); console.log("compressedContents keys:", Object.keys(p.block.compressedContents)); console.log("versions squashed:", p.block.versions.map(v => v.squashed)); await rt.history(f); console.log("HISTORY DID NOT THROW"); } catch (e) { console.log("HISTORY THREW", e.message);
+    threwMissing = true;
+  }
+  assert(threwMissing, "must throw explicit error if compressed payload is missing");
+
+  parsed.block.compressedContents[targetHash] = "NOT_A_VALID_ZLIB_PAYLOAD!@#";
+  await writeFile(f, rt.serializeBlock(parsed));
+  let threwZlib = false;
+  try {
+    rt.validateBlock(rt.parseBlock(await readFile(f, 'utf8')).block); 
+  } catch (e) {
+    threwZlib = true;
+  }
+  assert(threwZlib, "must throw explicit error if decompression fails due to corruption");
+
+  await rm(tmpDir, { recursive: true, force: true });
+}
+

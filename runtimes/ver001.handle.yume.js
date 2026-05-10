@@ -175,7 +175,12 @@ export function serializeBlock({ block, head, boot }) {
   if (!block || typeof block !== 'object') throw new TypeError('serializeBlock: block must be object');
   if (typeof head !== 'string')              throw new TypeError('serializeBlock: head must be string');
 
-  const blockJson = JSON.stringify(block, null, 2);
+  const blockJson = JSON.stringify(block, function(key, value) {
+    if (key === 'content' && this && this.squashed) {
+      return undefined;
+    }
+    return value;
+  }, 2);
   let out = '// @yume-format: 1\n\n';
   out += 'export const __block = ' + blockJson + ';\n\n';
   out += HEAD_BEGIN + '\n';
@@ -1542,11 +1547,13 @@ export function ensureDecompressed(block) {
   if (!block.compressedContents || typeof block.compressedContents !== 'object') return block;
   
   for (const v of block.versions) {
-    if (v.squashed && block.compressedContents[v.hash]) {
+    if (v.squashed) {
+      if (!block.compressedContents[v.hash]) throw new Error("Missing compressed data for squashed version " + v.hash);
+
       try {
         const buffer = Buffer.from(block.compressedContents[v.hash], 'base64');
         v.content = inflateSync(buffer).toString('utf8');
-        delete v.squashed;
+        // delete v.squashed;
       } catch (e) {
         throw new Error("failed to decompress content for version " + v.hash + ": " + e.message);
       }
