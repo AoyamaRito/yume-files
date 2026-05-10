@@ -16,6 +16,7 @@ All notable changes to `yume-files` are summarized here.
 
 ### Changed
 
+- Clarified that `yume-files` is both an editing substrate for CLI-based AI agents and the `.yume.js` file format itself.
 - Moved the web usage guide near the top of the page so first-time users see it immediately after the overview.
 - Shortened the web starter prompt and added a copy button.
 - Clarified that the v001 runtime remains zero-dependency and avoids AST package dependencies.

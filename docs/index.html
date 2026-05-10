@@ -1125,11 +1125,11 @@ export const chapterOne = `
         <div class="node style">style guide</div>
       </div>
       <div class="hero-copy">
-        <p class="eyebrow" data-i18n="hero.eyebrow">AI foundation file format</p>
-        <h1 id="hero-title" data-i18n="hero.title">A JavaScript file that owns its own version history — for AI to read, edit, and write back.</h1>
+        <p class="eyebrow" data-i18n="hero.eyebrow">AI editing tool + file format</p>
+        <h1 id="hero-title" data-i18n="hero.title">A JavaScript file for CLI-based AI agents to read, edit, and write back with history preserved.</h1>
         <p class="yume-meaning" data-i18n-html="hero.yume"><strong>YUME</strong> means 夢 — a creator's dream, made tangible.</p>
         <p class="lead" data-i18n="hero.lead">
-          Each `.yume.js` file is one Block: the current state lives in a HEAD region, every previous version sits in an append-only `versions[]` array, and the runtime is pinned right inside the file. AI agents call its commands; you keep talking in natural language.
+          yume-files is both an operating substrate for CLI agents such as Gemini CLI, Claude Code, and Codex, and the `.yume.js` file format itself. Each file is one Block: current state in HEAD, append-only history in `versions[]`, and a pinned runtime inside the file.
         </p>
         <div class="hero-actions" aria-label="Primary links">
           <a class="button" href="https://github.com/AoyamaRito/yume-files" data-i18n="hero.cta1">View on GitHub</a>
@@ -1702,10 +1702,10 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.fiction": "Fiction",
         "nav.updates": "Updates",
         "nav.commands": "Commands",
-        "hero.eyebrow": "AI foundation file format",
-        "hero.title": "A JavaScript file that owns its own version history — for AI to read, edit, and write back.",
+        "hero.eyebrow": "AI editing tool + file format",
+        "hero.title": "A JavaScript file for CLI-based AI agents to read, edit, and write back with history preserved.",
         "hero.yume": "<strong>YUME</strong> means 夢 — a creator's dream, made tangible.",
-        "hero.lead": "Each `.yume.js` file is one Block: the current state lives in a HEAD region, every previous version sits in an append-only `versions[]` array, and the runtime is pinned right inside the file. AI agents call its commands; you keep talking in natural language.",
+        "hero.lead": "yume-files is both an operating substrate for CLI agents such as Gemini CLI, Claude Code, and Codex, and the `.yume.js` file format itself. Each file is one Block: current state in HEAD, append-only history in `versions[]`, and a pinned runtime inside the file.",
         "hero.cta1": "View on GitHub",
         "hero.cta2": "Try the commands",
         "why.eyebrow": "Why",
@@ -1869,10 +1869,10 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.fiction": "創作",
         "nav.updates": "更新",
         "nav.commands": "コマンド",
-        "hero.eyebrow": "AI ファンデーション ファイル形式",
-        "hero.title": "自分の版を内蔵する JavaScript ファイル ── AI が読み、書き換え、戻すための。",
+        "hero.eyebrow": "AI 編集ツール + ファイル形式",
+        "hero.title": "CLI 型 AI agent が履歴を保ったまま読み、編集し、書き戻せる JavaScript ファイル。",
         "hero.yume": "<strong>YUME</strong> = 夢 — クリエイターの夢を、形にしたもの。",
-        "hero.lead": "`.yume.js` ファイル 1 つ = 1 つの Block。現在の状態は HEAD 領域、過去の全バージョンは追記専用の `versions[]` 配列、ランタイムバージョンもファイル自身に固定されています。AI エージェントが直接コマンドを叩き、人間は自然言語のまま。",
+        "hero.lead": "yume-files は Gemini CLI、Claude Code、Codex などの CLI 型 AI agent が扱う運用基盤であり、同時に `.yume.js` ファイル形式そのものです。1 file = 1 Block。現在形は HEAD、履歴は追記専用の `versions[]`、runtime は file 内に固定されます。",
         "hero.cta1": "GitHub で見る",
         "hero.cta2": "コマンドを試す",
         "why.eyebrow": "なぜ",
