@@ -705,6 +705,81 @@
       font-size: 0.98rem;
     }
 
+    .pain-grid {
+      display: grid;
+      gap: 14px;
+      margin-top: 38px;
+    }
+
+    .pain-row {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr;
+      gap: 20px;
+      align-items: start;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--white);
+    }
+
+    .pain-side,
+    .fix-side {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .pain-side p,
+    .fix-side p {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .pain-side p {
+      color: var(--muted);
+    }
+
+    .fix-side p {
+      color: var(--ink);
+    }
+
+    .fix-side code {
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .pain-label,
+    .fix-label {
+      display: inline-block;
+      width: max-content;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .pain-label {
+      background: rgba(103, 96, 86, 0.14);
+      color: var(--muted);
+    }
+
+    .fix-label {
+      background: rgba(18, 107, 100, 0.12);
+      color: var(--teal);
+    }
+
+    .pain-arrow {
+      display: grid;
+      place-items: center;
+      align-self: center;
+      color: var(--rust);
+      font-size: 1.6rem;
+      font-weight: 900;
+    }
+
     .arch-flow {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -898,6 +973,16 @@
       .arch-flow {
         grid-template-columns: 1fr;
       }
+
+      .pain-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .pain-arrow {
+        transform: rotate(90deg);
+        justify-self: start;
+      }
     }
   </style>
 </head>
@@ -951,11 +1036,10 @@ export const chapterOne = `
       </div>
       <div class="hero-copy">
         <p class="eyebrow" data-i18n="hero.eyebrow">AI foundation file format</p>
-        <h1 id="hero-title" data-i18n="hero.title">.yume.js keeps context small, traceable, and useful.</h1>
+        <h1 id="hero-title" data-i18n="hero.title">A JavaScript file that owns its own version history — for AI to read, edit, and write back.</h1>
         <p class="yume-meaning" data-i18n-html="hero.yume"><strong>YUME</strong> means 夢 — a creator's dream, made tangible.</p>
         <p class="lead" data-i18n="hero.lead">
-          yume-files is a zero-dependency reference implementation for AI-facing files.
-          It puts current content, history, refs, notes, impact analysis, and runtime pinning into one portable JavaScript file.
+          Each `.yume.js` file is one Block: the current state lives in a HEAD region, every previous version sits in an append-only `versions[]` array, and the runtime is pinned right inside the file. AI agents call its commands; you keep talking in natural language.
         </p>
         <div class="hero-actions" aria-label="Primary links">
           <a class="button" href="https://github.com/AoyamaRito/yume-files" data-i18n="hero.cta1">View on GitHub</a>
@@ -968,31 +1052,119 @@ export const chapterOne = `
       <div class="wrap split">
         <div>
           <p class="eyebrow" data-i18n="why.eyebrow">Why</p>
-          <h2 id="why-title" data-i18n="why.title">AI output improves when the context boundary is clear.</h2>
+          <h2 id="why-title" data-i18n="why.title">When AI edits a file, the "why" disappears.</h2>
         </div>
         <div>
           <p class="section-lead" data-i18n="why.lead">
-            Large context is not automatically good context. AI work often mixes stale notes, old drafts, unrelated specs, and repository-wide history.
-            `.yume.js` aims to hand the model only the Block it needs, plus the refs and reasons that matter.
+            Every AI edit overwrites the last draft. The reason, the prior intent, the abandoned attempt — gone unless someone remembers to commit. `.yume.js` keeps that history inside the file itself, so no separate commit step is required.
           </p>
         </div>
       </div>
       <div class="wrap proof-grid">
         <article class="card">
           <span class="metric">1</span>
-          <h3 data-i18n="why.card1.title">One file as a durable unit</h3>
-          <p data-i18n="why.card1.body">Current content, append-only versions, mutable notes, and runtime selection live together.</p>
+          <h3 data-i18n="why.card1.title">One file, full history</h3>
+          <p data-i18n="why.card1.body">Each `.yume.js` holds one Block. Every version lives inside the same file, append-only.</p>
         </article>
         <article class="card">
           <span class="metric">↔</span>
-          <h3 data-i18n="why.card2.title">Refs define the reading path</h3>
-          <p data-i18n="why.card2.body">Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.</p>
+          <h3 data-i18n="why.card2.title">AI-callable, in place</h3>
+          <p data-i18n="why.card2.body">The file is its own CLI. Agents commit, roll back, and edit through natural sub-commands; the file rewrites itself.</p>
         </article>
         <article class="card">
           <span class="metric">↓</span>
-          <h3 data-i18n="why.card3.title">Less token waste</h3>
-          <p data-i18n="why.card3.body">Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.</p>
+          <h3 data-i18n="why.card3.title">Portable, no service</h3>
+          <p data-i18n="why.card3.body">Move it, copy it, share it. No database, no server, no installer — just Node and the file.</p>
         </article>
+      </div>
+    </section>
+
+    <section id="pain" class="section band" aria-labelledby="pain-title">
+      <div class="wrap">
+        <p class="eyebrow" data-i18n="pain.eyebrow">What it fixes</p>
+        <h2 id="pain-title" data-i18n="pain.title">The familiar AI-development headaches, addressed in the format itself.</h2>
+        <p class="section-lead" data-i18n="pain.lead">
+          These are the workflow problems `.yume.js` was designed to remove. Each pain has a specific structural answer in the file format — not a tool around it, but the format itself.
+        </p>
+        <div class="pain-grid">
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p1.pain">AI edits silently overwrite previous drafts. The earlier version is gone.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p1.fix">Each Block keeps an append-only <code>versions[]</code> inside the file. No edit is lost.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p2.pain">Sending the whole codebase burns tokens — most of it is irrelevant to the task.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p2.fix"><code>heavy</code> expands the root Block and its declared refs only. The smallest useful slice goes to the model.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p3.pain">The reason for a change disappears the moment the edit happens. Commit messages rot or get skipped.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p3.fix"><code>notes</code> are mutable and can be attached to a version after the fact, without changing its hash.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p4.pain">One AI task touches many files. Later it is hard to tell which changes belong together.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p4.fix">Each AI operation gets a shared <code>applyId</code>. <code>apply-show</code> reproduces the full change set across files.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p5.pain">AI hallucinates functions or files that do not exist, or that have moved.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p5.fix"><code>refs-check</code> validates the graph: dangling paths, duplicate ids, cycles, broken Blocks.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p6.pain">A breaking edit is hard to undo across many files.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p6.fix"><code>rollback</code> returns any Block to a prior version. History lives in the file, not in git.</p>
+            </div>
+          </div>
+          <div class="pain-row">
+            <div class="pain-side">
+              <span class="pain-label" data-i18n="pain.label.pain">Pain</span>
+              <p data-i18n="pain.p7.pain">Granting AI full git access is risky — but without it, the model cannot see the file's past at all.</p>
+            </div>
+            <div class="pain-arrow" aria-hidden="true">→</div>
+            <div class="fix-side">
+              <span class="fix-label" data-i18n="pain.label.fix">Fix</span>
+              <p data-i18n-html="pain.p7.fix">History sits inside each <code>.yume.js</code>. Without any git permission, the AI reads every past version — mistakes included — and corrects the Block from full historical context.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1359,20 +1531,39 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.fiction": "Fiction",
         "nav.commands": "Commands",
         "hero.eyebrow": "AI foundation file format",
-        "hero.title": ".yume.js keeps context small, traceable, and useful.",
+        "hero.title": "A JavaScript file that owns its own version history — for AI to read, edit, and write back.",
         "hero.yume": "<strong>YUME</strong> means 夢 — a creator's dream, made tangible.",
-        "hero.lead": "yume-files is a zero-dependency reference implementation for AI-facing files. It puts current content, history, refs, notes, impact analysis, and runtime pinning into one portable JavaScript file.",
+        "hero.lead": "Each `.yume.js` file is one Block: the current state lives in a HEAD region, every previous version sits in an append-only `versions[]` array, and the runtime is pinned right inside the file. AI agents call its commands; you keep talking in natural language.",
         "hero.cta1": "View on GitHub",
         "hero.cta2": "Try the commands",
         "why.eyebrow": "Why",
-        "why.title": "AI output improves when the context boundary is clear.",
-        "why.lead": "Large context is not automatically good context. AI work often mixes stale notes, old drafts, unrelated specs, and repository-wide history. `.yume.js` aims to hand the model only the Block it needs, plus the refs and reasons that matter.",
-        "why.card1.title": "One file as a durable unit",
-        "why.card1.body": "Current content, append-only versions, mutable notes, and runtime selection live together.",
-        "why.card2.title": "Refs define the reading path",
-        "why.card2.body": "Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.",
-        "why.card3.title": "Less token waste",
-        "why.card3.body": "Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.",
+        "why.title": "When AI edits a file, the \"why\" disappears.",
+        "why.lead": "Every AI edit overwrites the last draft. The reason, the prior intent, the abandoned attempt — gone unless someone remembers to commit. `.yume.js` keeps that history inside the file itself, so no separate commit step is required.",
+        "why.card1.title": "One file, full history",
+        "why.card1.body": "Each `.yume.js` holds one Block. Every version lives inside the same file, append-only.",
+        "why.card2.title": "AI-callable, in place",
+        "why.card2.body": "The file is its own CLI. Agents commit, roll back, and edit through natural sub-commands; the file rewrites itself.",
+        "why.card3.title": "Portable, no service",
+        "why.card3.body": "Move it, copy it, share it. No database, no server, no installer — just Node and the file.",
+        "pain.eyebrow": "What it fixes",
+        "pain.title": "The familiar AI-development headaches, addressed in the format itself.",
+        "pain.lead": "These are the workflow problems `.yume.js` was designed to remove. Each pain has a specific structural answer in the file format — not a tool around it, but the format itself.",
+        "pain.label.pain": "Pain",
+        "pain.label.fix": "Fix",
+        "pain.p1.pain": "AI edits silently overwrite previous drafts. The earlier version is gone.",
+        "pain.p1.fix": "Each Block keeps an append-only <code>versions[]</code> inside the file. No edit is lost.",
+        "pain.p2.pain": "Sending the whole codebase burns tokens — most of it is irrelevant to the task.",
+        "pain.p2.fix": "<code>heavy</code> expands the root Block and its declared refs only. The smallest useful slice goes to the model.",
+        "pain.p3.pain": "The reason for a change disappears the moment the edit happens. Commit messages rot or get skipped.",
+        "pain.p3.fix": "<code>notes</code> are mutable and can be attached to a version after the fact, without changing its hash.",
+        "pain.p4.pain": "One AI task touches many files. Later it is hard to tell which changes belong together.",
+        "pain.p4.fix": "Each AI operation gets a shared <code>applyId</code>. <code>apply-show</code> reproduces the full change set across files.",
+        "pain.p5.pain": "AI hallucinates functions or files that do not exist, or that have moved.",
+        "pain.p5.fix": "<code>refs-check</code> validates the graph: dangling paths, duplicate ids, cycles, broken Blocks.",
+        "pain.p6.pain": "A breaking edit is hard to undo across many files.",
+        "pain.p6.fix": "<code>rollback</code> returns any Block to a prior version. History lives in the file, not in git.",
+        "pain.p7.pain": "Granting AI full git access is risky — but without it, the model cannot see the file's past at all.",
+        "pain.p7.fix": "History sits inside each <code>.yume.js</code>. Without any git permission, the AI reads every past version — mistakes included — and corrects the Block from full historical context.",
         "block.eyebrow": "Core mechanism",
         "block.title": "One Block per file. Each Block carries its own version history inside it.",
         "block.lead": ".yume.js is a per-Block version control system that lives inside the JavaScript file itself. The Block's `versions[]` array is append-only; the HEAD region exports the current state. Multiple files form a graph of independently-versioned Blocks — no shared timeline, no central history server.",
@@ -1479,20 +1670,39 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.fiction": "創作",
         "nav.commands": "コマンド",
         "hero.eyebrow": "AI ファンデーション ファイル形式",
-        "hero.title": ".yume.js は AI 文脈を、小さく・追跡可能・有用に保つ。",
+        "hero.title": "自分の版を内蔵する JavaScript ファイル ── AI が読み、書き換え、戻すための。",
         "hero.yume": "<strong>YUME</strong> = 夢 — クリエイターの夢を、形にしたもの。",
-        "hero.lead": "yume-files は AI 向けファイル形式のゼロ依存リファレンス実装です。現在のコンテンツ、履歴、参照、ノート、インパクト解析、ランタイム固定を、一つの可搬な JavaScript ファイルにまとめます。",
+        "hero.lead": "`.yume.js` ファイル 1 つ = 1 つの Block。現在の状態は HEAD 領域、過去の全バージョンは追記専用の `versions[]` 配列、ランタイムバージョンもファイル自身に固定されています。AI エージェントが直接コマンドを叩き、人間は自然言語のまま。",
         "hero.cta1": "GitHub で見る",
         "hero.cta2": "コマンドを試す",
         "why.eyebrow": "なぜ",
-        "why.title": "AI の出力は、文脈の境界が明確なほど良くなる。",
-        "why.lead": "大きな文脈が、必ずしも良い文脈とは限りません。AI 作業は古いノート・旧ドラフト・無関係な仕様・リポジトリ全体の履歴が混ざりがちです。`.yume.js` は、必要な Block と、意味のある参照・理由だけをモデルに渡すことを目指します。",
-        "why.card1.title": "永続単位としての一ファイル",
-        "why.card1.body": "現在のコンテンツ、追記専用バージョン、可変ノート、ランタイム選択が一つの場所に同居。",
-        "why.card2.title": "参照が読み順を定義する",
-        "why.card2.body": "import 参照、明示的な `// @ref:` 行、タグ、グラフ検査により、近傍の文脈が可視化されます。",
-        "why.card3.title": "トークンの浪費を抑える",
-        "why.card3.body": "`heavy` と `impact` を使い、無関係なファイルや雑多な履歴をモデルに送らない。",
+        "why.title": "AI がファイルを編集すると、'なぜ変えたか' が消える。",
+        "why.lead": "AI 編集は前の版を上書きします。変更理由・以前の意図・没にした試行 ── commit を意識しないと全部消えます。`.yume.js` はその履歴をファイル自身が持つので、commit を別ステップとして意識する必要がありません。",
+        "why.card1.title": "1 ファイル、丸ごと履歴",
+        "why.card1.body": "`.yume.js` 1 つに 1 Block。すべての版が同じファイルの中に追記専用で残ります。",
+        "why.card2.title": "AI が直接叩ける、その場で",
+        "why.card2.body": "ファイル自身が CLI。エージェントが commit / rollback / 編集を自然な subcommand で叩き、ファイルが自分を書き換えます。",
+        "why.card3.title": "持ち運べる、サービス不要",
+        "why.card3.body": "動かす・コピーする・共有する、自由。DB もサーバもインストーラも不要 ── Node とファイルだけ。",
+        "pain.eyebrow": "解消すること",
+        "pain.title": "AI 開発でよくある悩み、ファイル形式そのもので解決。",
+        "pain.lead": "`.yume.js` が解消することを目的に設計された、AI 作業の典型的な問題です。それぞれに、ファイル形式側の構造的な答えがあります ── 周辺ツールではなく、形式そのもので。",
+        "pain.label.pain": "悩み",
+        "pain.label.fix": "解決",
+        "pain.p1.pain": "AI 編集が前の版を黙って上書きし、以前のバージョンが消える。",
+        "pain.p1.fix": "Block 内に追記専用の <code>versions[]</code> が積まれる。どの編集も失われない。",
+        "pain.p2.pain": "コードベース全体を送るとトークンを浪費する。多くはそのタスクに無関係。",
+        "pain.p2.fix": "<code>heavy</code> がルート Block と宣言済み refs だけを展開。最小で有用な断片だけがモデルに渡る。",
+        "pain.p3.pain": "変更理由は編集の瞬間に消える。commit メッセージは陳腐化するか、書き忘れる。",
+        "pain.p3.fix": "<code>notes</code> は可変で、編集後でもバージョンに後付けできる。ハッシュも変わらない。",
+        "pain.p4.pain": "1 つの AI タスクで複数ファイルが変わると、あとから「どの変更が同じ作業か」が分からなくなる。",
+        "pain.p4.fix": "AI 操作ごとに共通の <code>applyId</code> が付く。<code>apply-show</code> で複数ファイルにまたがる変更集合を再現できる。",
+        "pain.p5.pain": "AI が存在しない / 移動済みの関数・ファイルを参照する (hallucination)。",
+        "pain.p5.fix": "<code>refs-check</code> がグラフを検証: 切れたパス、重複 id、循環、壊れた Block。",
+        "pain.p6.pain": "壊れた編集を複数ファイル横断で戻すのは大変。",
+        "pain.p6.fix": "<code>rollback</code> で任意の Block を前バージョンへ。履歴は git でなくファイル自身にある。",
+        "pain.p7.pain": "AI に git の全面アクセスを許すのは怖い。でも許さないと、モデルはファイルの過去を一切見られない。",
+        "pain.p7.fix": "履歴は <code>.yume.js</code> 自身に入っている。git の権限を一切渡さなくても、AI は過去の全バージョン ── 過ちも含めて ── を読み、それを踏まえて Block を修正できる。",
         "block.eyebrow": "基本のしくみ",
         "block.title": "1 ファイル 1 Block。Block ごとにバージョン履歴を内蔵する。",
         "block.lead": "`.yume.js` は、JavaScript ファイル自身の中に存在する Block 単位のバージョン管理システムです。Block の `versions[]` は追記専用で、HEAD 領域が現在の状態を export します。複数ファイルは、それぞれ独立にバージョン管理された Block のグラフを形成します — 共有タイムラインも、中央の履歴サーバもありません。",
