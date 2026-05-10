@@ -622,6 +622,109 @@
       flex-wrap: wrap;
     }
 
+    .block-stack {
+      margin-top: 38px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--white);
+      overflow: hidden;
+      box-shadow: 0 6px 22px rgba(23, 21, 17, 0.05);
+    }
+
+    .block-stack-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper-2);
+    }
+
+    .block-stack-header h3 {
+      margin: 0;
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+      font-size: 1rem;
+      color: var(--ink);
+    }
+
+    .block-stack-header .label {
+      margin: 0;
+      text-transform: none;
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+      letter-spacing: 0;
+      font-size: 0.86rem;
+    }
+
+    .version-row {
+      display: grid;
+      grid-template-columns: 130px 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding: 14px 22px;
+      border-top: 1px solid var(--line);
+    }
+
+    .version-row:first-of-type {
+      border-top: 0;
+    }
+
+    .v-tag {
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+      font-weight: 700;
+      color: var(--teal);
+      font-size: 0.92rem;
+    }
+
+    .v-note {
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .version-row.head {
+      background: rgba(154, 74, 47, 0.07);
+    }
+
+    .version-row.head .v-tag {
+      color: var(--rust);
+    }
+
+    .head-badge {
+      padding: 4px 10px;
+      border: 1px solid var(--rust);
+      border-radius: 6px;
+      color: var(--rust);
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+    }
+
+    .block-note {
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .author-card {
+      display: grid;
+      gap: 6px;
+    }
+
+    .author-real {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 1.04rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .author-bio {
+      margin: 18px 0 0;
+      color: #352f28;
+      font-size: 1.06rem;
+      line-height: 1.7;
+    }
+
     @media (max-width: 900px) {
       .topbar {
         position: static;
@@ -809,6 +912,45 @@ export const chapterOne = `
           <h3 data-i18n="why.card3.title">Less token waste</h3>
           <p data-i18n="why.card3.body">Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.</p>
         </article>
+      </div>
+    </section>
+
+    <section id="block" class="section" aria-labelledby="block-title">
+      <div class="wrap">
+        <p class="eyebrow" data-i18n="block.eyebrow">Core mechanism</p>
+        <h2 id="block-title" data-i18n="block.title">One Block per file. Each Block carries its own version history inside it.</h2>
+        <p class="section-lead" data-i18n="block.lead">
+          .yume.js is a per-Block version control system that lives inside the JavaScript file itself. The Block's `versions[]` array is append-only; the HEAD region exports the current state. Multiple files form a graph of independently-versioned Blocks — no shared timeline, no central history server.
+        </p>
+        <div class="block-stack" aria-label="Per-Block version stack">
+          <div class="block-stack-header">
+            <h3>chapter-07.draft.yume.js</h3>
+            <span class="label">block.id = chapterSeven</span>
+          </div>
+          <div class="version-row">
+            <span class="v-tag">versions[0]</span>
+            <span class="v-note" data-i18n="block.v0">initial draft</span>
+            <span></span>
+          </div>
+          <div class="version-row">
+            <span class="v-tag">versions[1]</span>
+            <span class="v-note" data-i18n="block.v1">tightened the opening</span>
+            <span></span>
+          </div>
+          <div class="version-row">
+            <span class="v-tag">versions[2]</span>
+            <span class="v-note" data-i18n="block.v2">added ref to mira.character</span>
+            <span></span>
+          </div>
+          <div class="version-row head">
+            <span class="v-tag">versions[3]</span>
+            <span class="v-note" data-i18n="block.v3">added literary-minimal style ref</span>
+            <span class="head-badge">HEAD</span>
+          </div>
+        </div>
+        <p class="block-note" data-i18n="block.note">
+          No git, no database. Each file is its own micro-repository. Move it, share it, revert it — the full history travels with the content.
+        </p>
       </div>
     </section>
 
@@ -1046,6 +1188,17 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         </div>
       </div>
     </section>
+
+    <section id="author" class="section band" aria-labelledby="author-title">
+      <div class="narrow author-card">
+        <p class="eyebrow" data-i18n="author.eyebrow">Author</p>
+        <h2 id="author-title">AOYAMA Rito · 蒼山りと</h2>
+        <p class="author-real">OKINOI Hiroyuki · 沖井広行</p>
+        <p class="author-bio" data-i18n="author.bio">
+          Former Namco programmer. Designed the real-time 18-cabinet multiplayer for the Ridge Racer arcade racing series. At the time the only networking option was modems — and on modems it ran. Patented.
+        </p>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -1077,6 +1230,14 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "why.card2.body": "Import refs, explicit `// @ref:` lines, tags, and graph checks make nearby context visible.",
         "why.card3.title": "Less token waste",
         "why.card3.body": "Use `heavy` and `impact` to avoid sending unrelated files and noisy history to the model.",
+        "block.eyebrow": "Core mechanism",
+        "block.title": "One Block per file. Each Block carries its own version history inside it.",
+        "block.lead": ".yume.js is a per-Block version control system that lives inside the JavaScript file itself. The Block's `versions[]` array is append-only; the HEAD region exports the current state. Multiple files form a graph of independently-versioned Blocks — no shared timeline, no central history server.",
+        "block.v0": "initial draft",
+        "block.v1": "tightened the opening",
+        "block.v2": "added ref to mira.character",
+        "block.v3": "added literary-minimal style ref",
+        "block.note": "No git, no database. Each file is its own micro-repository. Move it, share it, revert it — the full history travels with the content.",
         "format.eyebrow": "Format",
         "format.title": "A `.yume.js` file is normal JavaScript with an embedded history substrate.",
         "format.lead": "The file remains readable with a JS parser. The runtime does not need a database, server, AST package, or sidecar store.",
@@ -1150,6 +1311,8 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "final.lead": "yume-files is intentionally conservative: one format, one v001 runtime, zero dependencies, and focused e2e coverage. The next phase is real-world use: novels, specs, workflows, templates, and codebases.",
         "final.cta1": "Open the repository",
         "final.cta2": "Read the aiDoc spec",
+        "author.eyebrow": "Author",
+        "author.bio": "Former Namco programmer. Designed the real-time 18-cabinet multiplayer for the Ridge Racer arcade racing series. At the time the only networking option was modems — and on modems it ran. Patented.",
         "footer.left": "MIT License · yume-files",
         "footer.right": ".yume.js foundation file format for AI work"
       },
@@ -1173,6 +1336,14 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "why.card2.body": "import 参照、明示的な `// @ref:` 行、タグ、グラフ検査により、近傍の文脈が可視化されます。",
         "why.card3.title": "トークンの浪費を抑える",
         "why.card3.body": "`heavy` と `impact` を使い、無関係なファイルや雑多な履歴をモデルに送らない。",
+        "block.eyebrow": "基本のしくみ",
+        "block.title": "1 ファイル 1 Block。Block ごとにバージョン履歴を内蔵する。",
+        "block.lead": "`.yume.js` は、JavaScript ファイル自身の中に存在する Block 単位のバージョン管理システムです。Block の `versions[]` は追記専用で、HEAD 領域が現在の状態を export します。複数ファイルは、それぞれ独立にバージョン管理された Block のグラフを形成します — 共有タイムラインも、中央の履歴サーバもありません。",
+        "block.v0": "初稿",
+        "block.v1": "冒頭を締めた",
+        "block.v2": "mira.character への参照を追加",
+        "block.v3": "literary-minimal 文体への参照を追加",
+        "block.note": "git も DB も不要。各ファイルが自前の micro-repository。動かしても、共有しても、戻しても、完全な履歴がコンテンツと一緒に旅をします。",
         "format.eyebrow": "フォーマット",
         "format.title": "`.yume.js` は履歴サブストレートを内蔵した、ふつうの JavaScript。",
         "format.lead": "ファイルは JS パーサで読めるままです。ランタイムにデータベース・サーバ・AST パッケージ・サイドカーストアは不要です。",
@@ -1246,6 +1417,8 @@ node examples/hello.fn.yume.js refs-check . --json</code></pre>
         "final.lead": "yume-files は意図して保守的です: 一つのフォーマット、一つの v001 ランタイム、ゼロ依存、絞った e2e カバレッジ。次の段階は実利用: 小説・仕様・ワークフロー・テンプレート・コードベース。",
         "final.cta1": "リポジトリを開く",
         "final.cta2": "aiDoc 仕様を読む",
+        "author.eyebrow": "著者",
+        "author.bio": "元 Namco プログラマ。レースゲーム『リッジレーサー』シリーズで 18 台キャビネット間のリアルタイム同時対戦を実装。当時の通信手段はモデムしかなく、そのモデムでも動いた。その方式で特許を取得。",
         "footer.left": "MIT License · yume-files",
         "footer.right": "AI 作業のための .yume.js ファンデーションファイル形式"
       }
