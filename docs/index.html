@@ -1448,6 +1448,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         <p class="section-lead" data-i18n="commands.lead">These commands are the interface an AI assistant — Gemini CLI, Claude Code, Codex, and so on — uses while working on your `.yume.js` files. As the human, you keep talking in natural language; the agent handles the snapshot, rollback, and heavy/heavy-apply loop behind the scenes. The `.yume.js` file is its own CLI, so there is no separate tool to install. Node.js 20 or newer is enough.</p>
         <div class="command-grid">
           <div class="command">
+            <p data-i18n="commands.cmd0.label">Read the AI runbook</p>
+            <pre><code>npm run runbook
+node runAndReadMe.aiDoc.yume.js validate</code></pre>
+          </div>
+          <div class="command">
             <p data-i18n="commands.cmd1.label">Snapshot the current HEAD as a new version</p>
             <pre><code>node chapter-07.draft.yume.js commit \
   --note "tightened opening"</code></pre>
@@ -1645,6 +1650,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "commands.eyebrow": "Commands · for AI agents",
         "commands.title": "The AI calls these. You stay in natural language.",
         "commands.lead": "These commands are the interface an AI assistant — Gemini CLI, Claude Code, Codex, and so on — uses while working on your `.yume.js` files. As the human, you keep talking in natural language; the agent handles the snapshot, rollback, and heavy/heavy-apply loop behind the scenes. The `.yume.js` file is its own CLI, so there is no separate tool to install. Node.js 20 or newer is enough.",
+        "commands.cmd0.label": "Read the AI runbook",
         "commands.cmd1.label": "Snapshot the current HEAD as a new version",
         "commands.cmd2.label": "Browse history, show a version, diff two versions",
         "commands.cmd3.label": "Roll back to a previous version",
@@ -1784,6 +1790,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "commands.eyebrow": "コマンド · AI エージェント向け",
         "commands.title": "叩くのは AI、人間は自然言語のままで。",
         "commands.lead": "これらは Gemini CLI、Claude Code、Codex などの AI アシスタントが `.yume.js` を編集するときに叩くインターフェースです。人間は自然言語で対話を続けるだけで、commit・rollback・heavy / heavy-apply の往復は AI が裏でこなします。`.yume.js` ファイル自身が CLI なので、別ツールのインストールは不要。Node.js 20 以降があれば十分です。",
+        "commands.cmd0.label": "AI ランブックを読む",
         "commands.cmd1.label": "現在の HEAD を新しいバージョンとして commit",
         "commands.cmd2.label": "履歴の閲覧、特定バージョンの表示、差分",
         "commands.cmd3.label": "前のバージョンへ rollback",

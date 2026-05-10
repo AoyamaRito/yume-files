@@ -69,6 +69,15 @@ yume        = 誰でも使える product / CLI / chat REPL として整備中
 
 - Node.js 20 以上
 
+AI agent にこの repository を渡す場合は、まず `AGENTS.md` を読み、次に `runAndReadMe.aiDoc.yume.js` を読むのが最短です。`runAndReadMe` は AI が `.yume.js` をどう読み、どう編集し、どのコマンドで検証するかを yume file 自身として持つ operational runbook です。
+
+AI agent 向け runbook:
+
+```sh
+npm run runbook
+node runAndReadMe.aiDoc.yume.js validate
+```
+
 テスト:
 
 ```sh
@@ -186,7 +195,9 @@ node examples/hello.fn.yume.js apply-search . apply-demo-001
 
 ```txt
 yume-files/
+├── AGENTS.md                      # AI agent entrypoint / repo working rules
 ├── BLOCKFILE.aiDoc.yume.js       # canonical spec (role=aiDoc, self-historicizing)
+├── runAndReadMe.aiDoc.yume.js     # operational runbook for AI agents
 ├── runtimes/
 │   └── ver001.handle.yume.js      # runtime v001
 ├── examples/

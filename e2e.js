@@ -31,6 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const HELLO_SRC = join(HERE, 'examples', 'hello.fn.yume.js');
 const RUNTIME_SRC = join(HERE, 'runtimes', 'ver001.handle.yume.js');
 const PACKAGE_SRC = join(HERE, 'package.json');
+const RUNBOOK_SRC = join(HERE, 'runAndReadMe.aiDoc.yume.js');
 
 let pass = 0;
 let fail = 0;
@@ -68,6 +69,14 @@ console.log('\n[0] project invariants');
 const packageJson = JSON.parse(await readFile(PACKAGE_SRC, 'utf8'));
 assert(Object.keys(packageJson.dependencies ?? {}).length === 0, 'package has no runtime dependencies');
 assert(Object.keys(packageJson.devDependencies ?? {}).length === 0, 'package has no dev dependencies');
+const runbookSource = await readFile(RUNBOOK_SRC, 'utf8');
+const runbookParsed = parseBlock(runbookSource);
+assert(runbookParsed.block.id === 'runAndReadMe', 'runbook block id is runAndReadMe');
+assert(runbookParsed.block.type === 'aiDoc', 'runbook block type is aiDoc');
+assert(validateBlock(runbookParsed.block).ok, 'runbook validates hash chain');
+assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'BLOCKFILE'), 'runbook refs canonical spec');
+assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'hello'), 'runbook refs minimal example');
+assert(packageJson.scripts.runbook === 'node runAndReadMe.aiDoc.yume.js show head', 'package exposes runbook script');
 
 // ============================================================
 // 1. parseBlock
