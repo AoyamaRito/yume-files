@@ -580,6 +580,7 @@ export function validateBlock(block) {
     errors.push('versions must be an array');
     return { ok: false, errors };
   }
+  if (block.versions.length === 0) errors.push('versions must contain at least one entry');
   if (block.notes !== undefined && !isPlainObject(block.notes)) errors.push('notes must be an object when present');
 
   let prevHash = null;
