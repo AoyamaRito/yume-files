@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { hostname } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
-
+import { deflateSync, inflateSync } from "node:zlib";
 export const VERSION = '001';
 export const SCHEMA_VERSION = 1;
 
@@ -566,7 +566,8 @@ function pidAlive(pid) {
 // ============================================================
 // validateBlock — schema sanity + hash chain 検証
 // ============================================================
-export function validateBlock(block) {
+export function validateBlock(rawBlock) {
+  const block = ensureDecompressed(rawBlock);
   const errors = [];
 
   if (!isPlainObject(block)) {
@@ -1533,6 +1534,27 @@ function appendVersion(block, content, opts = {}) {
   return version;
 }
 
+
+// ============================================================
+// Compression / Decompression (Lazy Loading)
+// ============================================================
+export function ensureDecompressed(block) {
+  if (!block.compressedContents || typeof block.compressedContents !== 'object') return block;
+  
+  for (const v of block.versions) {
+    if (v.squashed && block.compressedContents[v.hash]) {
+      try {
+        const buffer = Buffer.from(block.compressedContents[v.hash], 'base64');
+        v.content = inflateSync(buffer).toString('utf8');
+        delete v.squashed;
+      } catch (e) {
+        throw new Error("failed to decompress content for version " + v.hash + ": " + e.message);
+      }
+    }
+  }
+  return block;
+}
+
 function resolveVersion(block, target = 'head', opts = {}) {
   if (!Array.isArray(block.versions) || block.versions.length === 0) {
     throw new Error('resolveVersion: no versions');
@@ -1609,6 +1631,50 @@ function splitDiffLines(text) {
 // ============================================================
 // commitManual — boundary case、AI 不在の人手編集救済
 // ============================================================
+
+// ============================================================
+// squash — zlib base64 self-compression for old versions
+// ============================================================
+export async function squash(fileUrl, keep = 10) {
+  const filePath = toPath(fileUrl);
+  const release = await acquireLock(filePath);
+  try {
+    const { block: rawBlock, head, boot } = parseBlock(await readFile(filePath, 'utf8'));
+    // Do NOT decompress everything first, we want to operate on the raw block
+    const block = rawBlock; 
+    
+    if (!block.compressedContents) {
+      block.compressedContents = {};
+    }
+
+    const versionsToKeep = Math.max(1, parseInt(keep, 10));
+    const targetCount = block.versions.length - versionsToKeep;
+    let squashedCount = 0;
+
+    for (let i = 0; i < targetCount; i++) {
+      const v = block.versions[i];
+      if (!v.squashed && v.content) {
+        const buffer = deflateSync(Buffer.from(v.content, 'utf8'));
+        block.compressedContents[v.hash] = buffer.toString('base64');
+        delete v.content;
+        v.squashed = true;
+        squashedCount++;
+      }
+    }
+
+    if (squashedCount === 0) {
+      return { squashedCount: 0 };
+    }
+
+    // Write back
+    const newSource = serializeBlock({ block, head, boot });
+    await atomicWrite(filePath, newSource);
+    return { squashedCount };
+  } finally {
+    await release();
+  }
+}
+
 export async function commitManual(fileUrl, opts = {}) {
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
@@ -1704,6 +1770,11 @@ export async function cli(fileUrl, block, argv) {
         } : undefined,
       });
       console.log(r.committed ? `committed: ${r.newHash.slice(0, 7)}  apply=${r.applyId ?? '-'}` : 'no changes');
+      return;
+    }
+    case 'squash': {
+      const { squashedCount } = await squash(fileUrl, argv[3] || 10);
+      console.log(`squashed ${squashedCount} versions.`);
       return;
     }
     case 'history': {
