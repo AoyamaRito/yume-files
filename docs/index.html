@@ -665,6 +665,35 @@
       line-height: 1.5;
     }
 
+    .update-list {
+      display: grid;
+      gap: 18px;
+      margin-top: 36px;
+    }
+
+    .update-item {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 22px;
+      padding: 22px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .update-date {
+      color: var(--rust);
+      font-weight: 900;
+      font-size: 0.92rem;
+    }
+
+    .update-item h3 {
+      margin-bottom: 8px;
+    }
+
+    .update-item p {
+      margin: 0;
+      color: var(--muted);
+    }
+
     .footer {
       padding: 44px 32px;
       border-top: 1px solid var(--line);
@@ -1024,7 +1053,8 @@
 
       .map-item,
       .step,
-      .usage-prompt {
+      .usage-prompt,
+      .update-item {
         grid-template-columns: 1fr;
       }
 
@@ -1057,6 +1087,7 @@
         <a href="#architecture" data-i18n="nav.arch">Architecture</a>
         <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
         <a href="#fiction" data-i18n="nav.fiction">Fiction</a>
+        <a href="#updates" data-i18n="nav.updates">Updates</a>
         <a href="#commands" data-i18n="nav.commands">Commands</a>
         <a href="https://github.com/AoyamaRito/yume-files">GitHub</a>
       </nav>
@@ -1508,6 +1539,40 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       </div>
     </section>
 
+    <section id="updates" class="section band" aria-labelledby="updates-title">
+      <div class="narrow">
+        <p class="eyebrow" data-i18n="updates.eyebrow">Updates</p>
+        <h2 id="updates-title" data-i18n="updates.title">Recent major changes.</h2>
+        <p class="section-lead" data-i18n="updates.lead">The web page shows only the latest major changes. The repository keeps the fuller changelog.</p>
+        <div class="update-list">
+          <article class="update-item">
+            <div class="update-date">2026-05-10</div>
+            <div>
+              <h3 data-i18n="updates.item1.title">AI runbook and one-line starter prompt</h3>
+              <p data-i18n-html="updates.item1.body">Added <code>AGENTS.md</code>, <code>runAndReadMe.aiDoc.yume.js</code>, and a copyable prompt so an AI can read the repo and follow its operating rules.</p>
+            </div>
+          </article>
+          <article class="update-item">
+            <div class="update-date">2026-05-10</div>
+            <div>
+              <h3 data-i18n="updates.item2.title">Usage catalog and privacy boundaries</h3>
+              <p data-i18n="updates.item2.body">Documented major usage patterns such as specs, workflows, templates, invoices, pitch decks, fiction, research, and executable JS without exposing private data.</p>
+            </div>
+          </article>
+          <article class="update-item">
+            <div class="update-date">2026-05-10</div>
+            <div>
+              <h3 data-i18n="updates.item3.title">Graph-aware runtime tools</h3>
+              <p data-i18n-html="updates.item3.body">Added <code>impact</code> and <code>refs-check</code> so agents can inspect reverse dependencies and validate refs before changing shared Blocks.</p>
+            </div>
+          </article>
+        </div>
+        <div class="hero-actions">
+          <a class="button secondary" href="https://github.com/AoyamaRito/yume-files/blob/main/CHANGELOG.md" data-i18n="updates.cta">Read the full changelog</a>
+        </div>
+      </div>
+    </section>
+
     <section class="section" aria-labelledby="principles-title">
       <div class="narrow">
         <p class="eyebrow" data-i18n="principles.eyebrow">Principles</p>
@@ -1635,6 +1700,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.arch": "Architecture",
         "nav.workflow": "Workflow",
         "nav.fiction": "Fiction",
+        "nav.updates": "Updates",
         "nav.commands": "Commands",
         "hero.eyebrow": "AI foundation file format",
         "hero.title": "A JavaScript file that owns its own version history — for AI to read, edit, and write back.",
@@ -1738,6 +1804,16 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "uses.card5.body": "Keep local rules and stable context in a portable file, not an opaque service store.",
         "uses.card6.title": "Documentation",
         "uses.card6.body": "Bind generated docs to the templates, workflows, and decisions that shaped them.",
+        "updates.eyebrow": "Updates",
+        "updates.title": "Recent major changes.",
+        "updates.lead": "The web page shows only the latest major changes. The repository keeps the fuller changelog.",
+        "updates.item1.title": "AI runbook and one-line starter prompt",
+        "updates.item1.body": "Added <code>AGENTS.md</code>, <code>runAndReadMe.aiDoc.yume.js</code>, and a copyable prompt so an AI can read the repo and follow its operating rules.",
+        "updates.item2.title": "Usage catalog and privacy boundaries",
+        "updates.item2.body": "Documented major usage patterns such as specs, workflows, templates, invoices, pitch decks, fiction, research, and executable JS without exposing private data.",
+        "updates.item3.title": "Graph-aware runtime tools",
+        "updates.item3.body": "Added <code>impact</code> and <code>refs-check</code> so agents can inspect reverse dependencies and validate refs before changing shared Blocks.",
+        "updates.cta": "Read the full changelog",
         "usage.eyebrow": "Usage",
         "usage.title": "A simple way to use yume-files with an AI agent.",
         "usage.lead": "Start by giving the agent the repository and one clear instruction. The runbook tells it what to read, how to edit, and how to verify the result.",
@@ -1791,6 +1867,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "nav.arch": "アーキテクチャ",
         "nav.workflow": "ワークフロー",
         "nav.fiction": "創作",
+        "nav.updates": "更新",
         "nav.commands": "コマンド",
         "hero.eyebrow": "AI ファンデーション ファイル形式",
         "hero.title": "自分の版を内蔵する JavaScript ファイル ── AI が読み、書き換え、戻すための。",
@@ -1894,6 +1971,16 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "uses.card5.body": "ローカル規則と安定文脈を、不透明な外部ストアではなく、可搬ファイルに置く。",
         "uses.card6.title": "ドキュメント",
         "uses.card6.body": "生成ドキュメントを、それを形作ったテンプレ・ワークフロー・決定に紐づける。",
+        "updates.eyebrow": "更新履歴",
+        "updates.title": "最近の大きな変更。",
+        "updates.lead": "Web には直近の大きな変更だけを載せています。詳しい履歴は repository の changelog にあります。",
+        "updates.item1.title": "AI runbook と 1 行スタータープロンプト",
+        "updates.item1.body": "<code>AGENTS.md</code>、<code>runAndReadMe.aiDoc.yume.js</code>、コピーできるプロンプトを追加し、AI が repo を読んで運用ルールに従えるようにしました。",
+        "updates.item2.title": "用途カタログと privacy boundary",
+        "updates.item2.body": "仕様、workflow、template、請求・見積、pitch deck、小説、調査、実行可能 JS などの用途を、private data を出さない形で整理しました。",
+        "updates.item3.title": "Graph-aware runtime tools",
+        "updates.item3.body": "<code>impact</code> と <code>refs-check</code> により、共有 Block を変更する前に逆参照と refs graph を確認できるようにしました。",
+        "updates.cta": "詳しい changelog を読む",
         "usage.eyebrow": "使い方",
         "usage.title": "AI エージェントに渡して、自然言語で依頼する。",
         "usage.lead": "最初に repository と短い指示を渡します。runbook が、何を読み、どう編集し、どう検証するかを AI に教えます。",

@@ -10,6 +10,8 @@ MIT License で公開しています。
 
 Project page: https://aoyamarito.github.io/yume-files/
 
+Changelog: [CHANGELOG.md](./CHANGELOG.md)
+
 ## 日本語
 
 ### 位置づけ
@@ -298,6 +300,7 @@ node examples/hello.fn.yume.js apply-search . apply-demo-001
 yume-files/
 ├── AGENTS.md                      # AI agent entrypoint / repo working rules
 ├── BLOCKFILE.aiDoc.yume.js       # canonical spec (role=aiDoc, self-historicizing)
+├── CHANGELOG.md                   # notable changes
 ├── runAndReadMe.aiDoc.yume.js     # operational runbook for AI agents
 ├── runtimes/
 │   └── ver001.handle.yume.js      # runtime v001
