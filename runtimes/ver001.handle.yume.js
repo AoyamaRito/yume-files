@@ -51,6 +51,7 @@ const HEAVY_FILE_END = '// === /YUME:FILE ===';
 // parseBlock — source → {block, head, boot}
 // ============================================================
 export function parseBlock(source) {
+  globalThis.__yumeCoverHook?.('parseBlock', arguments);
   if (typeof source !== 'string') throw new TypeError('parseBlock: source must be string');
   if (!hasHeaderMarker(source)) throw new Error('parseBlock: missing `// @yume-format: 1` marker in first 5 lines');
 
@@ -172,6 +173,7 @@ function findMarkerOutsideStrings(source, marker, startFrom) {
 // serializeBlock — {block, head, boot} → source
 // ============================================================
 export function serializeBlock({ block, head, boot }) {
+  globalThis.__yumeCoverHook?.('serializeBlock', arguments);
   if (!block || typeof block !== 'object') throw new TypeError('serializeBlock: block must be object');
   if (typeof head !== 'string')              throw new TypeError('serializeBlock: head must be string');
 
@@ -193,6 +195,7 @@ export function serializeBlock({ block, head, boot }) {
 // hashContent — sha256(content + '\n' + (prevHash ?? '') + '\n' + ts)
 // ============================================================
 export function hashContent(content, prevHash, ts) {
+  globalThis.__yumeCoverHook?.('hashContent', arguments);
   return createHash('sha256')
     .update(content + '\n' + (prevHash ?? '') + '\n' + ts)
     .digest('hex');
@@ -202,6 +205,7 @@ export function hashContent(content, prevHash, ts) {
 // refs / tags extraction — conservative source scan
 // ============================================================
 export function extractRefsAndTags(content) {
+  globalThis.__yumeCoverHook?.('extractRefsAndTags', arguments);
   if (typeof content !== 'string') throw new TypeError('extractRefsAndTags: content must be string');
   return {
     refs: extractRefs(content),
@@ -432,6 +436,7 @@ function maskChar(c) {
 // atomicWrite — tmp + rename
 // ============================================================
 export async function atomicWrite(filePath, content) {
+  globalThis.__yumeCoverHook?.('atomicWrite', arguments);
   const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
   try {
     await writeFileDurable(tmp, content);
@@ -459,6 +464,7 @@ const STALE_MS = 60 * 60 * 1000;
 const CURRENT_HOST = hostname();
 
 export async function acquireLock(filePath) {
+  globalThis.__yumeCoverHook?.('acquireLock', arguments);
   const lockPath = filePath + '.lock';
   const lockData = {
     pid: process.pid,
@@ -567,6 +573,7 @@ function pidAlive(pid) {
 // validateBlock — schema sanity + hash chain 検証
 // ============================================================
 export function validateBlock(block) {
+  globalThis.__yumeCoverHook?.('validateBlock', arguments);
   const errors = [];
 
   if (!isPlainObject(block)) {
@@ -655,6 +662,7 @@ export function validateBlock(block) {
 }
 
 export function assertValidBlock(block) {
+  globalThis.__yumeCoverHook?.('assertValidBlock', arguments);
   const result = validateBlock(block);
   if (!result.ok) throw new Error('validateBlock: ' + result.errors.join('; '));
   return block;
@@ -668,6 +676,7 @@ function isPlainObject(value) {
 // notes — mutable commentary layer(hash chain から分離)
 // ============================================================
 export async function noteAdd(fileUrl, target, note) {
+  globalThis.__yumeCoverHook?.('noteAdd', arguments);
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -685,6 +694,7 @@ export async function noteAdd(fileUrl, target, note) {
 }
 
 export async function noteEdit(fileUrl, target, noteId, patch) {
+  globalThis.__yumeCoverHook?.('noteEdit', arguments);
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -709,6 +719,7 @@ export async function noteEdit(fileUrl, target, noteId, patch) {
 }
 
 export async function noteRm(fileUrl, target, noteId) {
+  globalThis.__yumeCoverHook?.('noteRm', arguments);
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -730,6 +741,7 @@ export async function noteRm(fileUrl, target, noteId) {
 }
 
 export async function noteList(fileUrl, target = null) {
+  globalThis.__yumeCoverHook?.('noteList', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   if (target != null) {
@@ -742,6 +754,7 @@ export async function noteList(fileUrl, target = null) {
 }
 
 export async function notesSearch(folder, query) {
+  globalThis.__yumeCoverHook?.('notesSearch', arguments);
   const root = toPath(folder);
   if (typeof query !== 'string' || query.length === 0) throw new TypeError('notesSearch: query must be a non-empty string');
   const needle = query.toLowerCase();
@@ -772,12 +785,14 @@ export async function notesSearch(folder, query) {
 // refs / tags — latest version metadata
 // ============================================================
 export async function refs(fileUrl) {
+  globalThis.__yumeCoverHook?.('refs', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   return block.versions.at(-1)?.refs ?? [];
 }
 
 export async function tags(fileUrl) {
+  globalThis.__yumeCoverHook?.('tags', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   return block.versions.at(-1)?.tags ?? [];
@@ -787,6 +802,7 @@ export async function tags(fileUrl) {
 // impact — reverse refs closure(what changes if root changes?)
 // ============================================================
 export async function impact(fileUrls, rootId, depth = 1) {
+  globalThis.__yumeCoverHook?.('impact', arguments);
   const entries = await loadYumeEntries(fileUrls);
   const selected = selectImpactEntries(entries, rootId, normalizeDepth(depth));
   return selected.map(({ entry, distance, via }) => ({
@@ -803,6 +819,7 @@ export async function impact(fileUrls, rootId, depth = 1) {
 // refsCheck — refs graph sanity
 // ============================================================
 export async function refsCheck(fileUrls) {
+  globalThis.__yumeCoverHook?.('refsCheck', arguments);
   const { entries, issues } = await loadYumeEntriesForCheck(fileUrls);
   if (entries.length === 0) throw new Error('refsCheck: no readable yume block files');
 
@@ -881,6 +898,7 @@ export async function refsCheck(fileUrls) {
 // codec — heavy/decompress and heavyApply/recompress
 // ============================================================
 export async function heavy(fileUrls, rootId = '*', depth = 1) {
+  globalThis.__yumeCoverHook?.('heavy', arguments);
   const entries = await loadYumeEntries(fileUrls);
   const selected = selectHeavyEntries(entries, rootId, normalizeDepth(depth));
   return serializeHeavyView(selected, rootId, depth);
@@ -891,6 +909,7 @@ export async function decompress(fileUrls, rootId = '*', depth = 1) {
 }
 
 export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}) {
+  globalThis.__yumeCoverHook?.('heavyApply', arguments);
   if (typeof content !== 'string') throw new TypeError('heavyApply: content must be string');
 
   const sections = parseHeavyView(content);
@@ -1302,6 +1321,7 @@ function formatDepth(depth) {
 // apply — applyId group 閲覧
 // ============================================================
 export async function applyList(fileUrl) {
+  globalThis.__yumeCoverHook?.('applyList', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   const groups = new Map();
@@ -1322,6 +1342,7 @@ export async function applyList(fileUrl) {
 }
 
 export async function applyShow(fileUrl, applyId) {
+  globalThis.__yumeCoverHook?.('applyShow', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   const id = normalizeApplyId(applyId);
@@ -1334,6 +1355,7 @@ export async function applyShow(fileUrl, applyId) {
 }
 
 export async function applyIndex(folder) {
+  globalThis.__yumeCoverHook?.('applyIndex', arguments);
   const root = toPath(folder);
   const files = await listYumeFiles(root);
   const groups = new Map();
@@ -1376,6 +1398,7 @@ export async function applyIndex(folder) {
 }
 
 export async function applySearch(folder, applyId) {
+  globalThis.__yumeCoverHook?.('applySearch', arguments);
   const id = normalizeApplyId(applyId);
   const groups = await applyIndex(folder);
   const group = groups.find((g) => g.applyId === id);
@@ -1611,6 +1634,7 @@ function splitDiffLines(text) {
 // commitManual — boundary case、AI 不在の人手編集救済
 // ============================================================
 export async function commitManual(fileUrl, opts = {}) {
+  globalThis.__yumeCoverHook?.('commitManual', arguments);
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -1635,18 +1659,21 @@ export async function commitManual(fileUrl, opts = {}) {
 // history — versions 列挙
 // ============================================================
 export async function history(fileUrl) {
+  globalThis.__yumeCoverHook?.('history', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   return block.versions;
 }
 
 export async function show(fileUrl, target = 'head') {
+  globalThis.__yumeCoverHook?.('show', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   return resolveVersion(block, target);
 }
 
 export async function diff(fileUrl, from = '-2', to = '-1') {
+  globalThis.__yumeCoverHook?.('diff', arguments);
   const filePath = toPath(fileUrl);
   const { block } = await readParsedFile(filePath);
   const oldVersion = resolveVersion(block, from);
@@ -1660,6 +1687,7 @@ export async function diff(fileUrl, from = '-2', to = '-1') {
 }
 
 export async function rollback(fileUrl, target, opts = {}) {
+  globalThis.__yumeCoverHook?.('rollback', arguments);
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
