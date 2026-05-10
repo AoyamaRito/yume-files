@@ -586,6 +586,34 @@
       font-weight: 900;
     }
 
+    .usage-prompt {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 24px;
+      align-items: start;
+      margin-top: 34px;
+      padding-top: 26px;
+      border-top: 1px solid var(--line);
+    }
+
+    .usage-prompt p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .usage-prompt pre {
+      margin: 0;
+      overflow: auto;
+      white-space: pre-wrap;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      color: var(--ink);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
     .command {
       min-height: 164px;
       padding: 20px;
@@ -966,7 +994,8 @@
       }
 
       .map-item,
-      .step {
+      .step,
+      .usage-prompt {
         grid-template-columns: 1fr;
       }
 
@@ -995,6 +1024,7 @@
     <div class="topbar-right">
       <nav>
         <a href="#format" data-i18n="nav.format">Format</a>
+        <a href="#usage" data-i18n="nav.usage">Usage</a>
         <a href="#architecture" data-i18n="nav.arch">Architecture</a>
         <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
         <a href="#fiction" data-i18n="nav.fiction">Fiction</a>
@@ -1408,6 +1438,43 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       </div>
     </section>
 
+    <section id="usage" class="section" aria-labelledby="usage-title">
+      <div class="narrow">
+        <p class="eyebrow" data-i18n="usage.eyebrow">Usage</p>
+        <h2 id="usage-title" data-i18n="usage.title">A simple way to use yume-files with an AI agent.</h2>
+        <p class="section-lead" data-i18n="usage.lead">Start by giving the agent the repository and one clear instruction. The runbook tells it what to read, how to edit, and how to verify the result.</p>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step1.title">Ask it to read the runbook first.</h3>
+              <p data-i18n-html="usage.step1.body">Point the AI at <code>AGENTS.md</code> and <code>runAndReadMe.aiDoc.yume.js</code>. It should consult <code>BLOCKFILE.aiDoc.yume.js</code> only for exact format details.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step2.title">Describe the file you want.</h3>
+              <p data-i18n-html="usage.step2.body">Use domain-shaped names such as <code>novel.world.yume.js</code>, <code>review.workflow.yume.js</code>, <code>doc.template.yume.js</code>, or <code>chapter.draft.yume.js</code>.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3 data-i18n="usage.step3.title">Require validation before it stops.</h3>
+              <p data-i18n-html="usage.step3.body">For yume files, the AI should edit <code>HEAD</code>, commit through the runtime, then run <code>validate</code>, <code>refs-check .</code>, and <code>npm test</code> when needed.</p>
+            </div>
+          </div>
+        </div>
+        <div class="usage-prompt">
+          <div>
+            <h3 data-i18n="usage.prompt.title">Starter prompt</h3>
+            <p data-i18n="usage.prompt.body">Paste this into an AI assistant after attaching or opening the repository.</p>
+          </div>
+          <pre><code data-i18n="usage.prompt.code">Read @yume-files carefully, understand it, and use that understanding for the rest of my instructions.
+Start with AGENTS.md and runAndReadMe.aiDoc.yume.js.
+When you edit .yume.js files, use HEAD + runtime commit, then run validate and refs-check . before reporting.</code></pre>
+        </div>
+      </div>
+    </section>
+
     <section class="section" aria-labelledby="principles-title">
       <div class="narrow">
         <p class="eyebrow" data-i18n="principles.eyebrow">Principles</p>
@@ -1531,6 +1598,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
     const i18n = {
       en: {
         "nav.format": "Format",
+        "nav.usage": "Usage",
         "nav.arch": "Architecture",
         "nav.workflow": "Workflow",
         "nav.fiction": "Fiction",
@@ -1637,6 +1705,18 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "uses.card5.body": "Keep local rules and stable context in a portable file, not an opaque service store.",
         "uses.card6.title": "Documentation",
         "uses.card6.body": "Bind generated docs to the templates, workflows, and decisions that shaped them.",
+        "usage.eyebrow": "Usage",
+        "usage.title": "A simple way to use yume-files with an AI agent.",
+        "usage.lead": "Start by giving the agent the repository and one clear instruction. The runbook tells it what to read, how to edit, and how to verify the result.",
+        "usage.step1.title": "Ask it to read the runbook first.",
+        "usage.step1.body": "Point the AI at <code>AGENTS.md</code> and <code>runAndReadMe.aiDoc.yume.js</code>. It should consult <code>BLOCKFILE.aiDoc.yume.js</code> only for exact format details.",
+        "usage.step2.title": "Describe the file you want.",
+        "usage.step2.body": "Use domain-shaped names such as <code>novel.world.yume.js</code>, <code>review.workflow.yume.js</code>, <code>doc.template.yume.js</code>, or <code>chapter.draft.yume.js</code>.",
+        "usage.step3.title": "Require validation before it stops.",
+        "usage.step3.body": "For yume files, the AI should edit <code>HEAD</code>, commit through the runtime, then run <code>validate</code>, <code>refs-check .</code>, and <code>npm test</code> when needed.",
+        "usage.prompt.title": "Starter prompt",
+        "usage.prompt.body": "Paste this into an AI assistant after attaching or opening the repository.",
+        "usage.prompt.code": "Read @yume-files carefully, understand it, and use that understanding for the rest of my instructions.\nStart with AGENTS.md and runAndReadMe.aiDoc.yume.js.\nWhen you edit .yume.js files, use HEAD + runtime commit, then run validate and refs-check . before reporting.",
         "principles.eyebrow": "Principles",
         "principles.title": "Stable substrate, evolving runtime.",
         "principles.step1.title": "Keep the physical format boring.",
@@ -1671,6 +1751,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
       },
       jp: {
         "nav.format": "フォーマット",
+        "nav.usage": "使い方",
         "nav.arch": "アーキテクチャ",
         "nav.workflow": "ワークフロー",
         "nav.fiction": "創作",
@@ -1777,6 +1858,18 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "uses.card5.body": "ローカル規則と安定文脈を、不透明な外部ストアではなく、可搬ファイルに置く。",
         "uses.card6.title": "ドキュメント",
         "uses.card6.body": "生成ドキュメントを、それを形作ったテンプレ・ワークフロー・決定に紐づける。",
+        "usage.eyebrow": "使い方",
+        "usage.title": "AI エージェントに渡して、自然言語で依頼する。",
+        "usage.lead": "最初に repository と短い指示を渡します。runbook が、何を読み、どう編集し、どう検証するかを AI に教えます。",
+        "usage.step1.title": "まず runbook を読ませる。",
+        "usage.step1.body": "<code>AGENTS.md</code> と <code>runAndReadMe.aiDoc.yume.js</code> を先に読むよう伝えます。厳密な仕様が必要な時だけ <code>BLOCKFILE.aiDoc.yume.js</code> を参照します。",
+        "usage.step2.title": "作りたい file を用途で伝える。",
+        "usage.step2.body": "<code>novel.world.yume.js</code>、<code>review.workflow.yume.js</code>、<code>doc.template.yume.js</code>、<code>chapter.draft.yume.js</code> のように domain が分かる名前を使います。",
+        "usage.step3.title": "最後に検証まで求める。",
+        "usage.step3.body": "yume file では、AI が <code>HEAD</code> を編集し、runtime で commit し、必要に応じて <code>validate</code>、<code>refs-check .</code>、<code>npm test</code> まで実行します。",
+        "usage.prompt.title": "最初のプロンプト",
+        "usage.prompt.body": "repository を開いた AI assistant に、そのまま貼って使えます。",
+        "usage.prompt.code": "@yume-files を熟読して、理解した上で今後の指示をこなしてください。\n最初に AGENTS.md と runAndReadMe.aiDoc.yume.js を確認してください。\n.yume.js を編集するときは HEAD と runtime commit を使い、validate と refs-check . まで実行してください。",
         "principles.eyebrow": "原則",
         "principles.title": "安定したサブストレート、進化するランタイム。",
         "principles.step1.title": "物理フォーマットは退屈に保つ。",
