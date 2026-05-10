@@ -78,6 +78,66 @@ npm run runbook
 node runAndReadMe.aiDoc.yume.js validate
 ```
 
+### 人間から AI へのプロンプト例
+
+`@yume-files` を AI に読ませる時は、最初の依頼で「読む入口」と「完了条件」を一緒に伝えると安定します。下の例はそのまま貼って使えます。
+
+まず理解させる:
+
+```txt
+@yume-files を読んでください。
+最初に AGENTS.md と runAndReadMe.aiDoc.yume.js を確認し、
+必要なときだけ BLOCKFILE.aiDoc.yume.js を参照してください。
+
+この repo の .yume.js 運用ルールを短く説明し、
+以後そのルールに従って作業してください。
+```
+
+既存の `.yume.js` を編集させる:
+
+```txt
+<file>.yume.js の HEAD を編集してください。
+__block.versions[] は手で触らず、編集後に runtime の commit を使って履歴を追加してください。
+変更理由は note に残し、validate と refs-check . まで実行してください。
+```
+
+新しい workflow / template / spec file を作る:
+
+```txt
+以下の内容を、AI が再利用できる 1 つの .yume.js file に整理してください。
+filename.domain.yume.js の domain は用途に合うものを選んでください。
+refs / tags / BOOT を入れ、validate と npm test まで確認してください。
+
+内容:
+...
+```
+
+小説執筆の基盤 file を作る:
+
+```txt
+以下の世界観・キャラクター・文体ルールを .yume.js の基盤 file として整理してください。
+world / character / style / draft など、用途が分かる domain 名に分けてください。
+章や draft が参照できるよう @ref と tags を設計し、refs-check . で確認してください。
+
+素材:
+...
+```
+
+変更前に影響範囲を見せる:
+
+```txt
+<block-id> を変更したいです。
+まず impact で参照元と影響範囲を確認し、変更案を出してください。
+問題なければ編集し、commit、validate、refs-check .、npm test まで実行してください。
+```
+
+関連 context だけを展開して編集させる:
+
+```txt
+<block-id> を root にして heavy view を作り、関連 file だけを読んで編集してください。
+編集後は heavy-apply で戻し、差分、applyId、検証結果を報告してください。
+```
+
 テスト:
 
 ```sh
