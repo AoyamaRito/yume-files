@@ -601,6 +601,35 @@
       color: var(--muted);
     }
 
+    .usage-prompt-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .copy-prompt {
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .copy-prompt:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .copy-prompt:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
+    }
+
     .usage-prompt pre {
       margin: 0;
       overflow: auto;
@@ -1466,11 +1495,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         <div class="usage-prompt">
           <div>
             <h3 data-i18n="usage.prompt.title">Starter prompt</h3>
-            <p data-i18n="usage.prompt.body">Paste this into an AI assistant after attaching or opening the repository.</p>
+            <p data-i18n="usage.prompt.body">Copy this one line into an AI assistant after opening the repository.</p>
           </div>
-          <pre><code data-i18n="usage.prompt.code">Read @yume-files carefully, understand it, and use that understanding for the rest of my instructions.
-Start with AGENTS.md and runAndReadMe.aiDoc.yume.js.
-When you edit .yume.js files, use HEAD + runtime commit, then run validate and refs-check . before reporting.</code></pre>
+          <div>
+            <div class="usage-prompt-actions">
+              <span class="label" data-i18n="usage.prompt.label">One-line prompt</span>
+              <button type="button" class="copy-prompt" data-i18n="usage.prompt.copy">Copy</button>
+            </div>
+            <pre><code data-prompt-code data-i18n="usage.prompt.code">Read @yume-files first, then follow its runbook for my next instructions.</code></pre>
+          </div>
         </div>
       </div>
     </section>
@@ -1715,8 +1748,11 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "usage.step3.title": "Require validation before it stops.",
         "usage.step3.body": "For yume files, the AI should edit <code>HEAD</code>, commit through the runtime, then run <code>validate</code>, <code>refs-check .</code>, and <code>npm test</code> when needed.",
         "usage.prompt.title": "Starter prompt",
-        "usage.prompt.body": "Paste this into an AI assistant after attaching or opening the repository.",
-        "usage.prompt.code": "Read @yume-files carefully, understand it, and use that understanding for the rest of my instructions.\nStart with AGENTS.md and runAndReadMe.aiDoc.yume.js.\nWhen you edit .yume.js files, use HEAD + runtime commit, then run validate and refs-check . before reporting.",
+        "usage.prompt.body": "Copy this one line into an AI assistant after opening the repository.",
+        "usage.prompt.label": "One-line prompt",
+        "usage.prompt.copy": "Copy",
+        "usage.prompt.copied": "Copied",
+        "usage.prompt.code": "Read @yume-files first, then follow its runbook for my next instructions.",
         "principles.eyebrow": "Principles",
         "principles.title": "Stable substrate, evolving runtime.",
         "principles.step1.title": "Keep the physical format boring.",
@@ -1868,8 +1904,11 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "usage.step3.title": "最後に検証まで求める。",
         "usage.step3.body": "yume file では、AI が <code>HEAD</code> を編集し、runtime で commit し、必要に応じて <code>validate</code>、<code>refs-check .</code>、<code>npm test</code> まで実行します。",
         "usage.prompt.title": "最初のプロンプト",
-        "usage.prompt.body": "repository を開いた AI assistant に、そのまま貼って使えます。",
-        "usage.prompt.code": "@yume-files を熟読して、理解した上で今後の指示をこなしてください。\n最初に AGENTS.md と runAndReadMe.aiDoc.yume.js を確認してください。\n.yume.js を編集するときは HEAD と runtime commit を使い、validate と refs-check . まで実行してください。",
+        "usage.prompt.body": "repository を開いた AI assistant に、この 1 行を貼って使えます。",
+        "usage.prompt.label": "1 行プロンプト",
+        "usage.prompt.copy": "コピー",
+        "usage.prompt.copied": "コピー済み",
+        "usage.prompt.code": "@yume-filesを熟読して、理解した上で今後の指示をこなしてください。",
         "principles.eyebrow": "原則",
         "principles.title": "安定したサブストレート、進化するランタイム。",
         "principles.step1.title": "物理フォーマットは退屈に保つ。",
@@ -1926,6 +1965,30 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
 
     document.querySelectorAll(".lang-toggle button").forEach((btn) => {
       btn.addEventListener("click", () => applyLang(btn.dataset.lang));
+    });
+
+    document.querySelector(".copy-prompt")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const prompt = document.querySelector("[data-prompt-code]")?.textContent ?? "";
+      const lang = document.documentElement.dataset.lang || "en";
+      try {
+        await navigator.clipboard.writeText(prompt.trim());
+        button.textContent = i18n[lang]["usage.prompt.copied"];
+        window.setTimeout(() => {
+          button.textContent = i18n[document.documentElement.dataset.lang || "en"]["usage.prompt.copy"];
+        }, 1400);
+      } catch (e) {
+        const range = document.createRange();
+        const code = document.querySelector("[data-prompt-code]");
+        if (code) {
+          range.selectNodeContents(code);
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }
     });
 
     let initial = "en";
