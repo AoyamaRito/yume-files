@@ -153,19 +153,27 @@ try {
   const sourceIndexFile = join(outDir, 'sample-novel.source.index.yume.js');
   const termsIndexFile = join(outDir, 'sample-novel.terms.index.yume.js');
   const relationsFile = join(outDir, 'sample-novel.relations.index.yume.js');
+  const settingsCatalogFile = join(outDir, 'sample-novel.settings.catalog.yume.js');
+  const characterSettingsFile = join(outDir, 'sample-novel.characters.settings.yume.js');
   const factsFile = join(outDir, 'sample-novel.world.facts.yume.js');
   const sourceParsed = parseBlock(await readFile(sourceIndexFile, 'utf8'));
   const termsParsed = parseBlock(await readFile(termsIndexFile, 'utf8'));
   const relationsParsed = parseBlock(await readFile(relationsFile, 'utf8'));
+  const settingsCatalogParsed = parseBlock(await readFile(settingsCatalogFile, 'utf8'));
+  const characterSettingsParsed = parseBlock(await readFile(characterSettingsFile, 'utf8'));
   const factsParsed = parseBlock(await readFile(factsFile, 'utf8'));
   assert(validateBlock(sourceParsed.block).ok, 'generated source index validates');
   assert(validateBlock(termsParsed.block).ok, 'generated terms index validates');
   assert(validateBlock(relationsParsed.block).ok, 'generated relations index validates');
+  assert(validateBlock(settingsCatalogParsed.block).ok, 'generated settings catalog validates');
+  assert(validateBlock(characterSettingsParsed.block).ok, 'generated character settings collection validates');
   assert(validateBlock(factsParsed.block).ok, 'generated fact log validates');
 
   const sourceModule = await import(`${pathToFileURL(sourceIndexFile).href}?e2e=${Date.now()}-source`);
   const termsModule = await import(`${pathToFileURL(termsIndexFile).href}?e2e=${Date.now()}-terms`);
   const relationsModule = await import(`${pathToFileURL(relationsFile).href}?e2e=${Date.now()}-relations`);
+  const settingsCatalogModule = await import(`${pathToFileURL(settingsCatalogFile).href}?e2e=${Date.now()}-settings-catalog`);
+  const characterSettingsModule = await import(`${pathToFileURL(characterSettingsFile).href}?e2e=${Date.now()}-character-settings`);
   const factsModule = await import(`${pathToFileURL(factsFile).href}?e2e=${Date.now()}-facts`);
   assert(sourceModule.SourceIndex.chunks.length === 3, 'source index chunks txt by requested line count');
   assert(!('text' in sourceModule.SourceIndex.chunks[0]), 'source index omits full chunk text from yume output');
@@ -175,10 +183,28 @@ try {
   assert(relationsModule.RelationIndex.nodes.some((node) => node.term === 'ミラ'), 'relations index starts from term nodes');
   assert(relationsModule.RelationIndex.relations.length === 0, 'relations index starts with empty relations');
   assert(existsSync(join(outDir, sourceModule.SourceIndex.workdir.path, 'relations.raw.jsonl')), 'novel ingest creates empty raw relations intermediate');
+  assert(settingsCatalogModule.SettingsCatalog.collections.length >= 6, 'settings catalog lists multiple settings collections');
+  assert(settingsCatalogModule.SettingsCatalog.indexSources.length >= 3, 'settings catalog supports multiple index sources');
+  assert(settingsCatalogModule.SettingsCatalog.termLookup.some((item) => item.term === 'ミラ' && item.candidateCollections.includes('characters')), 'settings catalog maps terms to candidate collections');
+  assert(characterSettingsModule.SettingsCollection.collection.id === 'characters', 'character settings collection is generated');
+  assert(characterSettingsModule.SettingsCollection.entries.length === 0, 'settings collections start empty');
   assert(factsModule.WorldFactLog.facts.length === 0, 'fact log starts empty before AI extraction');
   assert(factsModule.WorldFactLog.extractionQueue.length > 0, 'fact log carries extraction queue from terms');
   assert(existsSync(join(outDir, '.yume-work')), 'novel ingest keeps intermediate workdir by default');
-  const generatedRefs = await refsCheck([sourceIndexFile, termsIndexFile, relationsFile, factsFile]);
+  const generatedRefs = await refsCheck([
+    sourceIndexFile,
+    termsIndexFile,
+    relationsFile,
+    settingsCatalogFile,
+    characterSettingsFile,
+    join(outDir, 'sample-novel.world.settings.yume.js'),
+    join(outDir, 'sample-novel.places.settings.yume.js'),
+    join(outDir, 'sample-novel.groups.settings.yume.js'),
+    join(outDir, 'sample-novel.objects.settings.yume.js'),
+    join(outDir, 'sample-novel.rules.settings.yume.js'),
+    join(outDir, 'sample-novel.events.settings.yume.js'),
+    factsFile,
+  ]);
   assert(generatedRefs.ok && generatedRefs.errors.length === 0, 'generated ingest yume refs-check passes');
 } finally {
   await rm(ingestTmp, { recursive: true, force: true });

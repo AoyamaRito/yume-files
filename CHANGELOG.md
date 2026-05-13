@@ -7,7 +7,7 @@ All notable changes to `yume-files` are summarized here.
 ### Added
 
 - Added `novelSourceIngest.workflow.yume.js` to preserve the long-novel txt ingest workflow as a `.yume.js` file.
-- Added `tools/novel-source-ingest.js`, a zero-dependency CLI that creates chunk, term, occurrence, and manifest intermediates before emitting source-index, terms-index, relation-index, and world-facts staging `.yume.js` files.
+- Added `tools/novel-source-ingest.js`, a zero-dependency CLI that creates chunk, term, occurrence, and manifest intermediates before emitting source-index, terms-index, relation-index, settings-catalog, settings-collection, and world-facts staging `.yume.js` files.
 - Added `npm run ingest:novel -- <input.txt>` and e2e coverage for generated ingest artifacts.
 
 ### Changed

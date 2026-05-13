@@ -32,6 +32,51 @@ const DEFAULTS = {
   minCount: 1,
 };
 
+const SETTING_COLLECTIONS = [
+  {
+    id: 'world',
+    type: 'world',
+    fileStem: 'world.settings',
+    description: 'General world premises that do not belong to a narrower collection yet.',
+  },
+  {
+    id: 'characters',
+    type: 'character',
+    fileStem: 'characters.settings',
+    description: 'People, aliases, roles, relationships, and stateful character notes.',
+  },
+  {
+    id: 'places',
+    type: 'place',
+    fileStem: 'places.settings',
+    description: 'Locations, regions, buildings, routes, and spatial relationships.',
+  },
+  {
+    id: 'groups',
+    type: 'group',
+    fileStem: 'groups.settings',
+    description: 'Organizations, families, factions, institutions, and armies.',
+  },
+  {
+    id: 'objects',
+    type: 'object',
+    fileStem: 'objects.settings',
+    description: 'Artifacts, tools, symbols, named objects, and special terms.',
+  },
+  {
+    id: 'rules',
+    type: 'rule',
+    fileStem: 'rules.settings',
+    description: 'Magic, technology, politics, social rules, constraints, and taboos.',
+  },
+  {
+    id: 'events',
+    type: 'event',
+    fileStem: 'events.settings',
+    description: 'Incidents, ceremonies, battles, plans, and timeline anchors.',
+  },
+];
+
 const STOP_TERMS = new Set([
   'ある', 'いる', 'する', 'した', 'して', 'なる', 'ない', 'こと', 'もの', 'ため', 'よう',
   'それ', 'これ', 'ここ', 'そこ', 'あれ', 'どこ', 'そして', 'しかし', 'また', 'ただ',
@@ -131,6 +176,8 @@ async function main(argv = process.argv.slice(2)) {
       sourceIndex: `${stem}.source.index.yume.js`,
       termIndex: `${stem}.terms.index.yume.js`,
       relationIndex: `${stem}.relations.index.yume.js`,
+      settingsCatalog: `${stem}.settings.catalog.yume.js`,
+      settingCollections: settingCollectionOutputFiles(stem),
       factLog: `${stem}.world.facts.yume.js`,
     },
   });
@@ -146,8 +193,17 @@ async function main(argv = process.argv.slice(2)) {
   const sourceIndexFile = join(outputDir, `${stem}.source.index.yume.js`);
   const termIndexFile = join(outputDir, `${stem}.terms.index.yume.js`);
   const relationIndexFile = join(outputDir, `${stem}.relations.index.yume.js`);
+  const settingsCatalogFile = join(outputDir, `${stem}.settings.catalog.yume.js`);
+  const settingCollectionFiles = Object.fromEntries(
+    SETTING_COLLECTIONS.map((collection) => [collection.id, join(outputDir, `${stem}.${collection.fileStem}.yume.js`)])
+  );
   const factLogFile = join(outputDir, `${stem}.world.facts.yume.js`);
   const workdirStatus = options.cleanWorkdir ? 'cleaned-after-success' : 'available';
+  const sourceIndexRef = `./${basename(sourceIndexFile)}`;
+  const termIndexRef = `./${basename(termIndexFile)}`;
+  const relationIndexRef = `./${basename(relationIndexFile)}`;
+  const factLogRef = `./${basename(factLogFile)}`;
+  const settingsCatalogRef = `./${basename(settingsCatalogFile)}`;
 
   const writes = [];
   writes.push(await writeYumeFile(sourceIndexFile, {
@@ -170,12 +226,45 @@ async function main(argv = process.argv.slice(2)) {
     head: relationIndexHead({
       sourceId,
       sourceHash,
-      sourceIndexFile: `./${basename(sourceIndexFile)}`,
-      termIndexFile: `./${basename(termIndexFile)}`,
+      sourceIndexFile: sourceIndexRef,
+      termIndexFile: termIndexRef,
       workdir: {
         path: relativePath(outputDir, workDir),
         status: workdirStatus,
       },
+      terms: yumeTerms,
+    }),
+  }));
+  for (const collection of SETTING_COLLECTIONS) {
+    writes.push(await writeYumeFile(settingCollectionFiles[collection.id], {
+      blockId: blockIdFromStem(stem, collection.id + 'Settings'),
+      type: 'settings.collection',
+      head: settingCollectionHead({
+        sourceId,
+        sourceHash,
+        collection,
+        sourceIndexFile: sourceIndexRef,
+        termIndexFile: termIndexRef,
+        relationIndexFile: relationIndexRef,
+        factLogFile: factLogRef,
+        settingsCatalogFile: settingsCatalogRef,
+      }),
+    }));
+  }
+  writes.push(await writeYumeFile(settingsCatalogFile, {
+    blockId: blockIdFromStem(stem, 'SettingsCatalog'),
+    type: 'settings.catalog',
+    head: settingsCatalogHead({
+      sourceId,
+      sourceHash,
+      sourceIndexFile: sourceIndexRef,
+      termIndexFile: termIndexRef,
+      relationIndexFile: relationIndexRef,
+      factLogFile: factLogRef,
+      collections: SETTING_COLLECTIONS.map((collection) => ({
+        ...collection,
+        file: `./${basename(settingCollectionFiles[collection.id])}`,
+      })),
       terms: yumeTerms,
     }),
   }));
@@ -185,9 +274,10 @@ async function main(argv = process.argv.slice(2)) {
     head: factLogHead({
       sourceId,
       sourceHash,
-      sourceIndexFile: `./${basename(sourceIndexFile)}`,
-      termIndexFile: `./${basename(termIndexFile)}`,
-      relationIndexFile: `./${basename(relationIndexFile)}`,
+      sourceIndexFile: sourceIndexRef,
+      termIndexFile: termIndexRef,
+      relationIndexFile: relationIndexRef,
+      settingsCatalogFile: settingsCatalogRef,
       workdir: {
         path: relativePath(outputDir, workDir),
         status: workdirStatus,
@@ -555,6 +645,12 @@ function buildManifest({ sourceId, sourcePath, outputDir, sourceHash, sourceBuff
   };
 }
 
+function settingCollectionOutputFiles(stem) {
+  return Object.fromEntries(
+    SETTING_COLLECTIONS.map((collection) => [collection.id, `${stem}.${collection.fileStem}.yume.js`])
+  );
+}
+
 function sourceIndexHead(index) {
   return `// @tags: novel ingest source-index chunk-index generated
 
@@ -617,7 +713,118 @@ export default RelationIndex;
 `;
 }
 
-function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, relationIndexFile, workdir, extractionQueue }) {
+function settingsCatalogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, relationIndexFile, factLogFile, collections, terms }) {
+  const catalog = {
+    id: `${sourceId}-settings-catalog`,
+    tool: TOOL_VERSION,
+    generatedAt: new Date().toISOString(),
+    source: {
+      sourceId,
+      sourceHash,
+      sourceIndexFile,
+      termIndexFile,
+      relationIndexFile,
+      factLogFile,
+    },
+    rule: 'Many settings collections are allowed. Look up candidate collections by term, then read the collection and cited index sources.',
+    indexSources: [
+      { id: 'terms', kind: 'terms.index', file: termIndexFile, purpose: 'word and occurrence lookup' },
+      { id: 'relations', kind: 'relations.index', file: relationIndexFile, purpose: 'term-to-term relation lookup' },
+      { id: 'facts', kind: 'world.facts', file: factLogFile, purpose: 'source-backed fact lookup' },
+    ],
+    collections: collections.map((collection) => ({
+      id: collection.id,
+      type: collection.type,
+      file: collection.file,
+      description: collection.description,
+      status: 'empty',
+    })),
+    termLookup: terms.map((term) => ({
+      term: term.term,
+      count: term.count,
+      spread: term.spread,
+      kindHints: term.kindHints,
+      indexSources: ['terms', 'relations', 'facts'],
+      candidateCollections: candidateCollectionsForTerm(term),
+      entries: [],
+    })),
+  };
+  return `// @tags: novel ingest settings-catalog term-lookup generated
+// @ref: ${sourceIndexFile}
+// @ref: ${termIndexFile}
+// @ref: ${relationIndexFile}
+// @ref: ${factLogFile}
+${collections.map((collection) => `// @ref: ${collection.file}`).join('\n')}
+
+export const SettingsCatalog = ${json(catalog)};
+
+export default SettingsCatalog;
+`;
+}
+
+function settingCollectionHead({ sourceId, sourceHash, collection, sourceIndexFile, termIndexFile, relationIndexFile, factLogFile, settingsCatalogFile }) {
+  const settings = {
+    id: `${sourceId}-${collection.id}-settings`,
+    tool: TOOL_VERSION,
+    generatedAt: new Date().toISOString(),
+    collection: {
+      id: collection.id,
+      type: collection.type,
+      description: collection.description,
+    },
+    source: {
+      sourceId,
+      sourceHash,
+      sourceIndexFile,
+      termIndexFile,
+      relationIndexFile,
+      factLogFile,
+      settingsCatalogFile,
+    },
+    status: 'empty',
+    rule: 'Fill entries from relation and fact evidence. A term may appear in multiple settings collections.',
+    entries: [],
+    entryShape: {
+      id: `${collection.type}-setting-000001`,
+      title: 'setting title or term',
+      terms: [],
+      aliases: [],
+      summary: 'short setting description',
+      facts: [],
+      relations: [],
+      evidenceRefs: [{ source: 'facts | relations | terms', id: 'fact-000001 or rel-000001 or term' }],
+      confidence: 'source | inferred | uncertain',
+      status: 'draft',
+    },
+  };
+  return `// @tags: novel ingest settings-collection ${collection.id} generated
+// @ref: ${sourceIndexFile}
+// @ref: ${termIndexFile}
+// @ref: ${relationIndexFile}
+// @ref: ${factLogFile}
+
+export const SettingsCollection = ${json(settings)};
+
+export default SettingsCollection;
+`;
+}
+
+function candidateCollectionsForTerm(term) {
+  const hints = new Set(term.kindHints ?? []);
+  const collections = new Set();
+  if (hints.has('place')) collections.add('places');
+  if (hints.has('group')) collections.add('groups');
+  if (hints.has('event')) collections.add('events');
+  if (hints.has('special-term')) collections.add('objects');
+  if (hints.has('name-or-term')) {
+    collections.add('characters');
+    collections.add('objects');
+  }
+  if (hints.has('unknown') || collections.size === 0) collections.add('world');
+  return [...collections];
+}
+
+function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, relationIndexFile, settingsCatalogFile, workdir, extractionQueue }) {
   const log = {
     id: `${sourceId}-world-facts`,
     tool: TOOL_VERSION,
@@ -628,10 +835,11 @@ function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, rel
       sourceIndexFile,
       termIndexFile,
       relationIndexFile,
+      settingsCatalogFile,
     },
     workdir,
     status: 'awaiting-ai-extraction',
-    rule: 'Use the relation index as the next reading map. Keep redundant source-backed facts and merge later only for focused views.',
+    rule: 'Use the relation index and settings catalog as reading maps. Keep redundant source-backed facts and merge later into settings collections.',
     facts: [],
     extractionQueue,
   };
@@ -639,6 +847,7 @@ function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, rel
 // @ref: ${sourceIndexFile}
 // @ref: ${termIndexFile}
 // @ref: ${relationIndexFile}
+// @ref: ${settingsCatalogFile}
 
 export const WorldFactLog = ${json(log)};
 
