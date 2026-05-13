@@ -21,6 +21,11 @@ import { join } from 'node:path';
 
 const realRt = await import('./runtimes/ver001.handle.yume.js');
 
+function percent(part, whole) {
+  if (whole === 0) return '100.0%';
+  return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
 // ----------------------------------------------------------------------
 // Phase 2.0: spec self-coverage (Proxy wrap)
 // ----------------------------------------------------------------------
@@ -58,7 +63,7 @@ for (const c of cases) {
 }
 currentCase = null;
 
-console.log(`spec: ${pass}/${cases.length} pass`);
+console.log(`spec: ${pass}/${cases.length} pass (${percent(pass, cases.length)})`);
 if (failTags.length) {
   console.log('  failing:');
   for (const t of failTags) console.log('    ' + t);
@@ -79,7 +84,7 @@ if (driftCases.length) {
 const exportedFns = Object.keys(realRt).filter(k => typeof realRt[k] === 'function').sort();
 const touched = exportedFns.filter(f => callsAll.has(f));
 const untouched = exportedFns.filter(f => !callsAll.has(f));
-console.log(`runtime-export coverage: ${touched.length}/${exportedFns.length} touched by spec`);
+console.log(`runtime-export coverage: ${touched.length}/${exportedFns.length} (${percent(touched.length, exportedFns.length)}) touched by spec`);
 if (untouched.length) {
   console.log('  not touched by any spec case:');
   for (const f of untouched) console.log('    ' + f);
@@ -119,7 +124,7 @@ if (wantE2E) {
   const e2eFns = new Set(e2eCalls.keys());
   const e2eTouched = exportedFns.filter(f => e2eFns.has(f));
   const e2eUntouched = exportedFns.filter(f => !e2eFns.has(f));
-  console.log(`e2e fn coverage: ${e2eTouched.length}/${exportedFns.length} runtime fns called by e2e`);
+  console.log(`e2e fn coverage: ${e2eTouched.length}/${exportedFns.length} (${percent(e2eTouched.length, exportedFns.length)}) runtime fns called by e2e`);
   if (e2eUntouched.length) {
     console.log('  not called by e2e:');
     for (const f of e2eUntouched) console.log('    ' + f);
@@ -129,6 +134,8 @@ if (wantE2E) {
   // never invoked that fn at all, the case is provably unreached.
   // (Input-shape match is Phase 2.2.)
   const specCasesUntouched = cases.filter(c => c.fn && !e2eFns.has(c.fn));
+  const specCasesTouched = cases.length - specCasesUntouched.length;
+  console.log(`e2e spec-case coverage (fn-level): ${specCasesTouched}/${cases.length} (${percent(specCasesTouched, cases.length)})`);
   console.log(`spec cases not reached by e2e (fn-level): ${specCasesUntouched.length}/${cases.length}`);
   if (specCasesUntouched.length) {
     console.log('  gaps:');

@@ -25,6 +25,7 @@ import {
   show, diff, rollback,
   refs as readRefs, tags as readTags,
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
+  cli,
 } from './runtimes/ver001.handle.yume.js';
 
 // Phase 2.1 coverage hook: only active under cover.js --e2e (env-gated, zero
@@ -59,6 +60,18 @@ function assert(cond, label) {
 }
 
 function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+async function captureConsole(body) {
+  const lines = [];
+  const originalLog = console.log;
+  try {
+    console.log = (...args) => { lines.push(args.join(' ')); };
+    await body();
+  } finally {
+    console.log = originalLog;
+  }
+  return lines.join('\n');
+}
 
 async function writeFixture(file, { id, type, content, ts }) {
   const p = parseBlock(await readFile(HELLO_SRC, 'utf8'));
@@ -108,6 +121,9 @@ assert(parsed.block.versions.length === 1, 'has 1 initial version');
 assert(parsed.head.includes('export function hello'), 'head contains hello function');
 assert(parsed.boot && parsed.boot.includes('import.meta.url'), 'boot region present');
 assert(validateBlock(parsed.block).ok, 'block validates hash chain');
+const parsedCrlf = parseBlock(helloSource.replace(/\n/g, '\r\n'));
+assert(parsedCrlf.head === parsed.head, 'parseBlock handles CRLF HEAD boundaries');
+assert(parsedCrlf.boot === parsed.boot, 'parseBlock handles CRLF BOOT boundaries');
 
 // ============================================================
 // 1b. parseBlock safety
@@ -246,6 +262,16 @@ assert(extractedExplicitRefs.refs.some((ref) => ref.kind === 'ref' && ref.target
 assert(extractedExplicitRefs.refs.some((ref) => ref.kind === 'uses' && ref.target === 'character-profile'), 'extractRefsAndTags detects explicit @ref typed refs');
 assert(!extractedExplicitRefs.refs.some((ref) => ref.target === './not-real.yume.js'), 'extractRefsAndTags ignores explicit @ref inside strings');
 
+const extractedRegexNoise = extractRefsAndTags("const r = /import x from '.\\/fake.js'|notCalled\\(\\)/; realCall();");
+assert(!extractedRegexNoise.refs.some((ref) => ref.target === './fake.js'), 'extractRefsAndTags ignores imports inside regex literals');
+assert(!extractedRegexNoise.refs.some((ref) => ref.target === 'notCalled'), 'extractRefsAndTags ignores calls inside regex literals');
+assert(extractedRegexNoise.refs.some((ref) => ref.target === 'realCall'), 'extractRefsAndTags keeps calls after regex literals');
+
+const extractedMethodDefinitions = extractRefsAndTags('const obj = { method() { return realCall(); } }; class X { other() {} }');
+assert(!extractedMethodDefinitions.refs.some((ref) => ref.target === 'method'), 'extractRefsAndTags ignores object method definitions');
+assert(!extractedMethodDefinitions.refs.some((ref) => ref.target === 'other'), 'extractRefsAndTags ignores class method definitions');
+assert(extractedMethodDefinitions.refs.some((ref) => ref.target === 'realCall'), 'extractRefsAndTags keeps calls inside method bodies');
+
 // ============================================================
 // 4. atomicWrite + acquireLock(tmp folder で実行)
 // ============================================================
@@ -333,6 +359,17 @@ assert(versionDiff.includes(`--- ${versions[0].hash.slice(0, 7)}`), 'diff() incl
 assert(versionDiff.includes(`+++ ${versions[1].hash.slice(0, 7)}`), 'diff() includes new version label');
 assert(versionDiff.includes('-  return `hello, ${name}!`;'), 'diff() includes removed line');
 assert(versionDiff.includes('+  return formatName(name);'), 'diff() includes added line');
+
+// ============================================================
+// 7b. cli dispatch
+// ============================================================
+console.log('\n[7b] cli dispatch');
+const cliHistoryOutput = await captureConsole(async () => {
+  const current = parseBlock(await readFile(tmpFile, 'utf8'));
+  await cli(tmpFile, current.block, ['node', tmpFile, 'history']);
+});
+assert(cliHistoryOutput.includes(versions[0].hash.slice(0, 7)), 'cli() dispatches history verb');
+assert(cliHistoryOutput.includes('refs='), 'cli() prints history summaries');
 
 // ============================================================
 // 8. notes / apply
@@ -484,6 +521,40 @@ assert(codecGroup.notes.length === 1 && codecGroup.notes[0].text === 'codec roun
 const heavyViewAfter = await heavy([tmpFile, tmpFile2, formatFile], 'hello', 1);
 const noopApply = await heavyApply([tmpFile, tmpFile2, formatFile], 'hello', heavyViewAfter, 1);
 assert(noopApply.updated.length === 0 && noopApply.applyId === null, 'heavyApply is no-op when view is unchanged');
+
+const partialAFile = join(tmpDir, 'partial-a.fn.yume.js');
+const partialBFile = join(tmpDir, 'partial-b.fn.yume.js');
+await writeFixture(partialAFile, {
+  id: 'partialA',
+  type: 'fn',
+  content: `// @ref: ./partial-b.fn.yume.js
+export const partialA = 1;
+`,
+  ts: 1714000001100,
+});
+await writeFixture(partialBFile, {
+  id: 'partialB',
+  type: 'fn',
+  content: `export const partialB = 1;
+`,
+  ts: 1714000001200,
+});
+const staleMultiView = await heavy([partialAFile, partialBFile], 'partialA', 1);
+{
+  const s = await readFile(partialBFile, 'utf8');
+  const p = parseBlock(s);
+  p.head = 'export const partialB = 2;\n';
+  await atomicWrite(partialBFile, serializeBlock(p));
+  await commitManual(partialBFile);
+}
+const staleMultiEdited = staleMultiView
+  .replace('export const partialA = 1;', 'export const partialA = 9;')
+  .replace('export const partialB = 1;', 'export const partialB = 9;');
+let staleMultiRefused = false;
+try { await heavyApply([partialAFile, partialBFile], 'partialA', staleMultiEdited, 1); } catch { staleMultiRefused = true; }
+const partialAAfterStale = await history(partialAFile);
+assert(staleMultiRefused, 'heavyApply refuses stale multi-file view');
+assert(partialAAfterStale.length === 1 && partialAAfterStale[0].content.includes('partialA = 1'), 'heavyApply does not partially update earlier files on stale multi-file view');
 
 const worldFile = join(tmpDir, 'novel.world.yume.js');
 const chapterOneFile = join(tmpDir, 'chapter-one.draft.yume.js');

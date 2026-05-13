@@ -126,13 +126,27 @@ function extractRegion(source, beginMarker, endMarker) {
   const beginIdx = findMarkerOutsideStrings(source, beginMarker, 0);
   if (beginIdx < 0) return null;
   const afterBegin = beginIdx + beginMarker.length;
-  // skip the newline immediately after begin marker
-  const contentStart = source[afterBegin] === '\n' ? afterBegin + 1 : afterBegin;
+  const contentStart = skipOneLineBreak(source, afterBegin);
   const endIdx = findMarkerOutsideStrings(source, endMarker, contentStart);
   if (endIdx < 0) return null;
-  // trim the trailing newline before end marker
-  const contentEnd = source[endIdx - 1] === '\n' ? endIdx - 1 : endIdx;
-  return source.slice(contentStart, contentEnd);
+  const contentEnd = trimOneLineBreakBefore(source, endIdx);
+  return normalizeLineEndings(source.slice(contentStart, contentEnd));
+}
+
+function normalizeLineEndings(text) {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+function skipOneLineBreak(source, index) {
+  if (source[index] === '\r' && source[index + 1] === '\n') return index + 2;
+  if (source[index] === '\n' || source[index] === '\r') return index + 1;
+  return index;
+}
+
+function trimOneLineBreakBefore(source, index) {
+  if (source[index - 2] === '\r' && source[index - 1] === '\n') return index - 2;
+  if (source[index - 1] === '\n' || source[index - 1] === '\r') return index - 1;
+  return index;
 }
 
 // Find marker outside string/template literals and block comments.
@@ -146,10 +160,21 @@ function findMarkerOutsideStrings(source, marker, startFrom) {
   let stringChar = null;
   let escape = false;
   let inBlockComment = false;
+  let inRegex = false;
+  let inRegexCharClass = false;
 
   while (i <= source.length - marker.length) {
     const c = source[i];
 
+    if (inRegex) {
+      if (escape) { escape = false; i++; continue; }
+      if (c === '\\') { escape = true; i++; continue; }
+      if (c === '[') { inRegexCharClass = true; i++; continue; }
+      if (c === ']') { inRegexCharClass = false; i++; continue; }
+      if (c === '\n' || c === '\r') { inRegex = false; inRegexCharClass = false; i++; continue; }
+      if (c === '/' && !inRegexCharClass) { inRegex = false; i++; continue; }
+      i++; continue;
+    }
     if (inBlockComment) {
       if (c === '*' && source[i + 1] === '/') { inBlockComment = false; i += 2; continue; }
       i++; continue;
@@ -164,6 +189,13 @@ function findMarkerOutsideStrings(source, marker, startFrom) {
     if (c === '"' || c === "'" || c === '`') { inString = true; stringChar = c; i++; continue; }
 
     if (source.startsWith(marker, i)) return i;
+    if (c === '/' && isRegexLiteralStart(source, i)) {
+      inRegex = true;
+      inRegexCharClass = false;
+      escape = false;
+      i++;
+      continue;
+    }
     i++;
   }
   return -1;
@@ -248,9 +280,26 @@ function collectCallRefs(refs, source) {
     const prev = source[match.index - 1];
     if (/\b(function|class)\s+$/.test(before)) continue;
     if (prev === '.' || /[\w$]/.test(prev)) continue;
+    if (looksLikeMethodDefinition(source, match.index + match[0].length - 1)) continue;
 
     refs.push({ kind: 'calls', target: name });
   }
+}
+
+function looksLikeMethodDefinition(source, openParenIndex) {
+  let depth = 0;
+  for (let i = openParenIndex; i < source.length; i++) {
+    const c = source[i];
+    if (c === '(') depth++;
+    else if (c === ')') {
+      depth--;
+      if (depth !== 0) continue;
+      let j = i + 1;
+      while (/\s/.test(source[j] ?? '')) j++;
+      return source[j] === '{';
+    }
+  }
+  return false;
 }
 
 function collectExplicitRefs(refs, source) {
@@ -325,6 +374,24 @@ function makeSourceView(source) {
       continue;
     }
 
+    if (ctx.mode === 'regex') {
+      emitMasked(moduleChars, callChars, commentChars, c);
+      if (ctx.escape) {
+        ctx.escape = false;
+      } else if (c === '\\') {
+        ctx.escape = true;
+      } else if (c === '[') {
+        ctx.inCharClass = true;
+      } else if (c === ']') {
+        ctx.inCharClass = false;
+      } else if (c === '\n' || c === '\r') {
+        stack.pop();
+      } else if (c === '/' && !ctx.inCharClass) {
+        stack.pop();
+      }
+      continue;
+    }
+
     if (ctx.mode === 'string') {
       emitString(moduleChars, callChars, commentChars, c);
       if (ctx.escape) {
@@ -374,6 +441,11 @@ function makeSourceView(source) {
       stack.push({ mode: 'blockComment' });
       continue;
     }
+    if (c === '/' && isRegexLiteralStart(source, i)) {
+      emitMasked(moduleChars, callChars, commentChars, c);
+      stack.push({ mode: 'regex', escape: false, inCharClass: false });
+      continue;
+    }
     if (c === '"' || c === "'") {
       emitString(moduleChars, callChars, commentChars, c);
       stack.push({ mode: 'string', quote: c, escape: false });
@@ -395,6 +467,27 @@ function makeSourceView(source) {
     callSource: callChars.join(''),
     lineCommentSource: commentChars.join(''),
   };
+}
+
+const REGEX_PREFIX_KEYWORDS = new Set([
+  'await', 'case', 'delete', 'do', 'else', 'in', 'instanceof', 'of',
+  'return', 'throw', 'typeof', 'void', 'yield',
+]);
+
+function isRegexLiteralStart(source, slashIndex) {
+  const next = source[slashIndex + 1];
+  if (next === '/' || next === '*' || next === undefined) return false;
+
+  let i = slashIndex - 1;
+  while (i >= 0 && /\s/.test(source[i])) i--;
+  if (i < 0) return true;
+
+  const prev = source[i];
+  if ('([{=,:;!~?&|+-*%^<>'.includes(prev)) return true;
+
+  const prefix = source.slice(0, i + 1);
+  const word = prefix.match(/([A-Za-z_$][\w$]*)$/)?.[1];
+  return word ? REGEX_PREFIX_KEYWORDS.has(word) : false;
 }
 
 function emitCode(moduleChars, callChars, commentChars, c) {
@@ -604,7 +697,7 @@ export function validateBlock(block) {
     if (typeof v.hash !== 'string' || !/^[0-9a-f]{64}$/.test(v.hash)) errors.push(`${prefix}.hash must be sha256 hex`);
     if (!Array.isArray(v.refs)) errors.push(`${prefix}.refs must be an array`);
     if (!Array.isArray(v.tags)) errors.push(`${prefix}.tags must be an array`);
-    if (v.applyId !== null && typeof v.applyId !== 'string') errors.push(`${prefix}.applyId must be null or string`);
+    if (v.applyId !== null && (typeof v.applyId !== 'string' || v.applyId.length === 0)) errors.push(`${prefix}.applyId must be null or non-empty string`);
     if (Array.isArray(v.refs)) {
       for (let j = 0; j < v.refs.length; j++) {
         const ref = v.refs[j];
@@ -695,6 +788,7 @@ export async function noteAdd(fileUrl, target, note) {
 
 export async function noteEdit(fileUrl, target, noteId, patch) {
   globalThis.__yumeCoverHook?.('noteEdit', arguments);
+  if (!isPlainObject(patch)) throw new TypeError('noteEdit: patch must be object');
   const filePath = toPath(fileUrl);
   const release = await acquireLock(filePath);
   try {
@@ -941,7 +1035,9 @@ export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}
   }
 
   const applyId = opts.applyId ?? makeApplyId();
+  assertWritableApplyId(applyId);
   const release = await acquireLocks(pending.map(({ entry }) => entry.file));
+  const prepared = [];
   const updated = [];
   const newHashes = {};
 
@@ -957,6 +1053,10 @@ export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}
         throw new Error(`heavyApply: stale view for ${entry.relativeFile}: expected ${section.meta.hash}, found ${currentHead.hash}`);
       }
 
+      prepared.push({ entry, section, parsed });
+    }
+
+    for (const { entry, section, parsed } of prepared) {
       parsed.head = section.content;
       const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
       await atomicWrite(entry.file, serializeBlock(parsed));
@@ -1486,9 +1586,9 @@ function resolveNoteKey(block, target) {
   }
   if (/^-?\d+$/.test(target)) {
     const index = Number(target);
-    const resolved = index < 0 ? block.versions.at(index) : block.versions[index];
-    if (!resolved) throw new Error(`version index not found: ${target}`);
-    return resolved.hash;
+    const resolved = versionByIndex(block, index);
+    if (resolved) return resolved.hash;
+    if (index < 0) throw new Error(`version index not found: ${target}`);
   }
 
   const matches = block.versions.filter((version) => version.hash === target || version.hash.startsWith(target));
@@ -1506,6 +1606,12 @@ function ensureApplyExists(block, applyId) {
 function normalizeApplyId(applyId) {
   if (typeof applyId !== 'string' || applyId.length === 0) throw new TypeError('applyId must be a non-empty string');
   return applyId.startsWith('apply:') ? applyId.slice('apply:'.length) : applyId;
+}
+
+function assertWritableApplyId(applyId) {
+  if (applyId !== null && (typeof applyId !== 'string' || applyId.length === 0)) {
+    throw new TypeError('applyId must be null or a non-empty string');
+  }
 }
 
 function makeApplyId() {
@@ -1530,6 +1636,7 @@ function appendVersion(block, content, opts = {}) {
   const prevHash = lastVersion?.hash ?? null;
   const hash = hashContent(content, prevHash, ts);
   const applyId = opts.applyId ?? (opts.note ? makeApplyId() : null);
+  assertWritableApplyId(applyId);
   const extracted = extractRefsAndTags(content);
   const version = {
     hash,
@@ -1562,7 +1669,10 @@ function resolveVersion(block, target = 'head', opts = {}) {
   if (typeof target !== 'string') throw new TypeError('version target must be string or integer');
 
   if (/^-?\d+$/.test(target)) {
-    return resolveVersionIndex(block, Number(target), opts);
+    const index = Number(target);
+    const resolved = versionByIndex(block, index, opts);
+    if (resolved) return resolved;
+    if (index < 0) throw new Error(`version index not found: ${target}`);
   }
 
   const matches = block.versions.filter((version) => version.hash === target || version.hash.startsWith(target));
@@ -1572,11 +1682,15 @@ function resolveVersion(block, target = 'head', opts = {}) {
 }
 
 function resolveVersionIndex(block, index, opts = {}) {
-  const offset = opts.negativeFromPrevious && index < 0 ? -1 : 0;
-  const actualIndex = index < 0 ? block.versions.length + index + offset : index;
-  const version = block.versions[actualIndex];
+  const version = versionByIndex(block, index, opts);
   if (!version) throw new Error(`version index not found: ${index}`);
   return version;
+}
+
+function versionByIndex(block, index, opts = {}) {
+  const offset = opts.negativeFromPrevious && index < 0 ? -1 : 0;
+  const actualIndex = index < 0 ? block.versions.length + index + offset : index;
+  return block.versions[actualIndex] ?? null;
 }
 
 function versionLabel(version, fallback) {
@@ -1712,6 +1826,7 @@ export async function rollback(fileUrl, target, opts = {}) {
 // cli — verb dispatcher(BOOT region から呼ばれる)
 // ============================================================
 export async function cli(fileUrl, block, argv) {
+  globalThis.__yumeCoverHook?.('cli', arguments);
   const verb = argv[2];
   switch (verb) {
     case 'commit': {

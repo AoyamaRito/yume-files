@@ -1,7 +1,7 @@
 # yume-files Handout — Spec Coverage Strategy
 
-最終更新: 2026-05-10 (Phase 2.1 達成後)
-区切り: Phase 0 〜 2.1 完了時点の引き継ぎ資料 (別 session の AI / 人間が状況を最短で把握するため)
+最終更新: 2026-05-13 (runtime bug fix + e2e coverage 再確認後)
+区切り: Phase 0 〜 2.1 完了後の引き継ぎ資料 (別 session の AI / 人間が状況を最短で把握するため)
 
 ---
 
@@ -20,13 +20,13 @@ AI 編集との相性が良い理由:
 
 ---
 
-## 現状サマリ (2026-05-10)
+## 現状サマリ (2026-05-13)
 
 | Phase | 内容 | 状態 |
 |---|---|---|
 | 0 | docs (AGENTS.md) に戦略追記 | ✅ 完了 |
 | 1 薄 | runtime.spec.yume.js (31 case, 純粋関数のみ) | ✅ 完了 |
-| 1 厚 | 79 case (純粋 + I/O) に拡張 | ✅ 完了 |
+| 1 厚 | 106 case (純粋 + I/O + CLI dispatcher + runtime regression) に拡張 | ✅ 完了 |
 | 2.0 | cover.js で spec の self-coverage 計測 | ✅ 完了 |
 | 2.1 | e2e に hook 仕込んで「e2e が spec を網羅したか」判定 | ✅ 完了 (戦略の本命達成) |
 | 2.2 | input-shape 一致まで踏み込んだ網羅判定 (現状は fn-level) | ⏸ 未着手 |
@@ -35,12 +35,13 @@ AI 編集との相性が良い理由:
 ### 数値
 
 ```
-spec cases:                            79 (all pass)
-declared-fn drift:                     0/79
-runtime-export coverage (spec):        28/31  (untouched: cli, decompress, recompress)
-e2e fn coverage (e2e が呼ぶ runtime fn): 28/31  (spec と完全一致 / 同 3 つだけ未呼)
-spec cases not reached by e2e:         0/79   ← Phase 2.1 達成、戦略本命
-npm test (e2e):                        121 pass
+spec cases:                            106 (all pass)
+declared-fn drift:                     0/106
+runtime-export coverage (spec):        29/29 (100.0%)
+e2e fn coverage (e2e が呼ぶ runtime fn): 29/29 (100.0%)
+e2e spec-case coverage (fn-level):      106/106 (100.0%)
+spec cases not reached by e2e:         0/106   ← Phase 2.1 達成、戦略本命
+npm test (e2e):                        133 pass
 yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtime.spec 全部 valid
 ```
 
@@ -48,15 +49,16 @@ yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtim
 
 ---
 
-## 戦略が引き出した発見 (5 件)
+## 戦略が引き出した発見 (6 件)
 
 | # | 内容 | 対応 |
 |---|---|---|
 | 1 | `validateBlock` が空 `versions[]` を valid 判定 | fix `c19166c` (1 行追加) |
 | 2 | `commitManual({note})` は version hash でなく `apply:` key 保管 | spec 認識を実装に合わせ修正、設計は妥当 |
-| 3 | `decompress` / `recompress` (heavy alias) が **どの spec case にも触られない死荷物** | deprecate 候補として next steps へ |
-| 4 | spec 79 case が宣言通りの fn を実際呼んでいる (drift=0) | spec 自身の整合性証明 |
-| 5 | 残り 3 untouched export (`cli` / `decompress` / `recompress`) が **全部 entry point + deprecate 候補** | runtime API が無駄なく整理されている裏付け |
+| 3 | `cli` が coverage hook と e2e 経路から漏れていた | `cli` hook + history dispatcher smoke を追加 |
+| 4 | CRLF region、regex literal scan、numeric hash prefix、heavyApply partial write の runtime bug | 修正 + regression 追加 |
+| 5 | spec 106 case が宣言通りの fn を実際呼んでいる (drift=0) | spec 自身の整合性証明 |
+| 6 | runtime export coverage が 29/29 まで到達 | spec/e2e の fn-level 整合を確認 |
 
 ---
 
@@ -64,12 +66,12 @@ yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtim
 
 | file | 役割 |
 |---|---|
-| `runtime.spec.yume.js` | case 表 (79 case)、yume file format で書かれた spec |
-| `cover.js` | Phase 2.0 spec coverage runner (`npm run cover`) |
+| `runtime.spec.yume.js` | case 表 (106 case)、yume file format で書かれた spec |
+| `cover.js` | Phase 2.0/2.1 coverage runner (`npm run cover`, `npm run cover:e2e`) |
 | `runtimes/ver001.handle.yume.js` | runtime (validateBlock fix 適用済) |
 | `AGENTS.md` | 戦略の運用ルール記載 |
-| `package.json` | `npm run cover` script 追加済 |
-| `e2e.js` | 既存 e2e 121 tests + Phase 2.1 hook header (env-gated、env 未設定時ゼロ効果) |
+| `package.json` | `npm run cover` / `npm run cover:e2e` script 追加済 |
+| `e2e.js` | 既存 e2e 133 tests + Phase 2.1 hook header (env-gated、env 未設定時ゼロ効果) |
 
 ---
 
@@ -90,21 +92,18 @@ c19166c  fix(runtime): reject empty versions[] in validateBlock
 
 ### 即着手可 (リスク小)
 
-**`decompress` / `recompress` の deprecate**
-cover.js が「死荷物」として定量検出した。整理対象:
-- `examples/hello.fn.yume.js` の `api` 配列から削除
-- `runtimes/ver001.handle.yume.js` の `cli()` から `case 'decompress':` / `case 'recompress':` 削除 (関数本体は heavy/heavy-apply に統合済 = export 自体を削除可)
-- AGENTS.md / README に「heavy / heavy-apply のみ supported」明記
+**coverage output の読みやすさ維持**
+`npm run cover:e2e` は fn-level の網羅率を数値で出す。今後 runtime export を増やす場合は、同時に spec case と e2e 経路を追加し、`not called by e2e` と `gaps` を 0 に戻す。
 
 ### Phase 2.1 (達成済) の仕様
 
-実装は A 案 (runtime hook) を 28 export に段階追加、`e2e.js` に env-gated header、`cover.js` に `--e2e` flag。`node cover.js --e2e` で:
+実装は A 案 (runtime hook) を 29 export に段階追加、`e2e.js` に env-gated header、`cover.js` に `--e2e` flag。`node cover.js --e2e` / `npm run cover:e2e` で:
 - e2e を `child_process.spawn` で `YUME_COVER=1` 付き起動
 - e2e 中の全 fn 呼び出しを `process.on('exit')` で JSON dump
 - 親が読み取り、spec case の宣言 fn と突合
 - 「e2e で 1 度も呼ばれない fn」「網羅できない spec case」を出す
 
-現状: gaps=0/79 (戦略本命達成)。
+現状: gaps=0/106 (戦略本命達成)。
 
 ### Phase 2.2 候補 — input-shape 一致判定
 
