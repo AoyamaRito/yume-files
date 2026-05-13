@@ -41,8 +41,8 @@ runtime-export coverage (spec):        29/29 (100.0%)
 e2e fn coverage (e2e が呼ぶ runtime fn): 29/29 (100.0%)
 e2e spec-case coverage (fn-level):      106/106 (100.0%)
 spec cases not reached by e2e:         0/106   ← Phase 2.1 達成、戦略本命
-npm test (e2e):                        133 pass
-yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtime.spec 全部 valid
+npm test (e2e):                        150 pass
+yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtime.spec / novelSourceIngest 全部 valid
 ```
 
 **意味**: spec が宣言する全 fn を e2e が現実シナリオで踏んでいる。spec/e2e/cover 三層が完全整合 = 仕様と振る舞いに今知り得る範囲で乖離なし、という状態。
@@ -70,8 +70,9 @@ yume files (validate):                 BLOCKFILE / runAndReadMe / hello / runtim
 | `cover.js` | Phase 2.0/2.1 coverage runner (`npm run cover`, `npm run cover:e2e`) |
 | `runtimes/ver001.handle.yume.js` | runtime (validateBlock fix 適用済) |
 | `AGENTS.md` | 戦略の運用ルール記載 |
-| `package.json` | `npm run cover` / `npm run cover:e2e` script 追加済 |
-| `e2e.js` | 既存 e2e 133 tests + Phase 2.1 hook header (env-gated、env 未設定時ゼロ効果) |
+| `package.json` | `npm run cover` / `npm run cover:e2e` / `npm run ingest:novel` script 追加済 |
+| `e2e.js` | 既存 e2e 150 checks + Phase 2.1 hook header (env-gated、env 未設定時ゼロ効果) |
+| `novelSourceIngest.workflow.yume.js` | 長い小説 txt を source/term/fact staging に分ける ingest workflow |
 
 ---
 

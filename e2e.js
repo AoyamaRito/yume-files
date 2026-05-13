@@ -14,10 +14,12 @@
 //
 // 実 file を直接編集する代わりに tmp folder に hello を copy → 編集 → commit → 検査。
 
-import { readFile, mkdir, rm, cp } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { readFile, mkdir, rm, cp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   parseBlock, serializeBlock, hashContent, extractRefsAndTags,
   atomicWrite, acquireLock, commitManual, history, validateBlock,
@@ -50,6 +52,8 @@ const HELLO_SRC = join(HERE, 'examples', 'hello.fn.yume.js');
 const RUNTIME_SRC = join(HERE, 'runtimes', 'ver001.handle.yume.js');
 const PACKAGE_SRC = join(HERE, 'package.json');
 const RUNBOOK_SRC = join(HERE, 'runAndReadMe.aiDoc.yume.js');
+const INGEST_WORKFLOW_SRC = join(HERE, 'novelSourceIngest.workflow.yume.js');
+const NOVEL_INGEST_TOOL = join(HERE, 'tools', 'novel-source-ingest.js');
 
 let pass = 0;
 let fail = 0;
@@ -107,6 +111,71 @@ assert(validateBlock(runbookParsed.block).ok, 'runbook validates hash chain');
 assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'BLOCKFILE'), 'runbook refs canonical spec');
 assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'hello'), 'runbook refs minimal example');
 assert(packageJson.scripts.runbook === 'node runAndReadMe.aiDoc.yume.js show head', 'package exposes runbook script');
+assert(packageJson.scripts['ingest:novel'] === 'node tools/novel-source-ingest.js', 'package exposes novel ingest script');
+
+// ============================================================
+// 0b. novel source ingest workflow / tool
+// ============================================================
+console.log('\n[0b] novel source ingest workflow / tool');
+const ingestWorkflowSource = await readFile(INGEST_WORKFLOW_SRC, 'utf8');
+const ingestWorkflowParsed = parseBlock(ingestWorkflowSource);
+assert(ingestWorkflowParsed.block.id === 'novelSourceIngestWorkflow', 'ingest workflow block id is stable');
+assert(ingestWorkflowParsed.block.type === 'workflow', 'ingest workflow block type is workflow');
+assert(validateBlock(ingestWorkflowParsed.block).ok, 'ingest workflow validates hash chain');
+assert(ingestWorkflowParsed.block.versions.at(-1).tags.includes('intermediate-files'), 'ingest workflow records intermediate-file tag');
+
+const ingestTmp = join(tmpdir(), `yume-novel-ingest-e2e-${process.pid}-${Date.now()}`);
+await mkdir(ingestTmp, { recursive: true });
+try {
+  const inputTxt = join(ingestTmp, 'source.txt');
+  const outDir = join(ingestTmp, 'out');
+  await mkdir(outDir, { recursive: true });
+  await writeFile(inputTxt, [
+    '第一章 北塔',
+    'ミラは北塔に住んでいる。',
+    '港町セレスには青灯教団がある。',
+    'ミラは「星鍵」を探している。',
+    '第二章 港',
+    '青灯教団はセレス港で儀式を行う。',
+  ].join('\n'), 'utf8');
+
+  const ingestRun = spawnSync(process.execPath, [
+    NOVEL_INGEST_TOOL,
+    inputTxt,
+    '--out-dir', outDir,
+    '--stem', 'sample-novel',
+    '--chunk-lines', '2',
+    '--max-yume-terms', '100',
+  ], { cwd: HERE, encoding: 'utf8' });
+  if (ingestRun.status !== 0) console.error(ingestRun.stderr || ingestRun.stdout);
+  assert(ingestRun.status === 0, 'novel ingest tool exits successfully');
+
+  const sourceIndexFile = join(outDir, 'sample-novel.source.index.yume.js');
+  const termsIndexFile = join(outDir, 'sample-novel.terms.index.yume.js');
+  const factsFile = join(outDir, 'sample-novel.world.facts.yume.js');
+  const sourceParsed = parseBlock(await readFile(sourceIndexFile, 'utf8'));
+  const termsParsed = parseBlock(await readFile(termsIndexFile, 'utf8'));
+  const factsParsed = parseBlock(await readFile(factsFile, 'utf8'));
+  assert(validateBlock(sourceParsed.block).ok, 'generated source index validates');
+  assert(validateBlock(termsParsed.block).ok, 'generated terms index validates');
+  assert(validateBlock(factsParsed.block).ok, 'generated fact log validates');
+
+  const sourceModule = await import(`${pathToFileURL(sourceIndexFile).href}?e2e=${Date.now()}-source`);
+  const termsModule = await import(`${pathToFileURL(termsIndexFile).href}?e2e=${Date.now()}-terms`);
+  const factsModule = await import(`${pathToFileURL(factsFile).href}?e2e=${Date.now()}-facts`);
+  assert(sourceModule.SourceIndex.chunks.length === 3, 'source index chunks txt by requested line count');
+  assert(!('text' in sourceModule.SourceIndex.chunks[0]), 'source index omits full chunk text from yume output');
+  const generatedTerms = termsModule.TermIndex.terms.map((term) => term.term);
+  assert(generatedTerms.includes('ミラ'), 'term index extracts katakana name candidate');
+  assert(generatedTerms.includes('北塔'), 'term index extracts kanji place candidate');
+  assert(factsModule.WorldFactLog.facts.length === 0, 'fact log starts empty before AI extraction');
+  assert(factsModule.WorldFactLog.extractionQueue.length > 0, 'fact log carries extraction queue from terms');
+  assert(existsSync(join(outDir, '.yume-work')), 'novel ingest keeps intermediate workdir by default');
+  const generatedRefs = await refsCheck([sourceIndexFile, termsIndexFile, factsFile]);
+  assert(generatedRefs.ok && generatedRefs.errors.length === 0, 'generated ingest yume refs-check passes');
+} finally {
+  await rm(ingestTmp, { recursive: true, force: true });
+}
 
 // ============================================================
 // 1. parseBlock
