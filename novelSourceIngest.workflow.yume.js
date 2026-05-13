@@ -74,6 +74,25 @@ export const __block = {
         "intermediate-files"
       ],
       "applyId": "apply-2026-05-13-0d367a14"
+    },
+    {
+      "hash": "71fee2aec664b9cc2f0b0daf1debaf6e09029fc197dcef6e8d9472d544902ddc",
+      "prevHash": "911a11aea6c29cfd5e10a9cc45bde37bd2fdc3a1ba848b4e891b4dbbeddd27ce",
+      "content": "// @tags: novel ingest workflow source-index term-index relation-index settings-catalog evidence-log intermediate-files\n\nexport const NovelSourceIngestWorkflow = {\n  id: \"novel-source-ingest\",\n  purpose: \"Read a long novel txt without forcing an eager clean world model.\",\n  coreHypothesis: \"The slow path is eager cleanup: extraction, deduplication, contradiction handling, naming cleanup, and schema polishing in one AI pass.\",\n  principle: \"Ingest first, normalize later.\",\n  artifacts: [\n    {\n      role: \"source-index\",\n      file: \"<stem>.source.index.yume.js\",\n      job: \"Store source hash, line count, stable chunk ids, chunk hashes, and short previews. Do not store the full txt.\"\n    },\n    {\n      role: \"term-index\",\n      file: \"<stem>.terms.index.yume.js\",\n      job: \"Store candidate terms, phrase occurrences, kind hints, nearby terms, and source chunk pointers.\"\n    },\n    {\n      role: \"relation-index\",\n      file: \"<stem>.relations.index.yume.js\",\n      job: \"Start from term nodes with empty relations. Fill evidence-backed term relations after focused reading.\"\n    },\n    {\n      role: \"settings-catalog\",\n      file: \"<stem>.settings.catalog.yume.js\",\n      job: \"Map terms to many settings collections and keep multiple index sources available for lookup.\"\n    },\n    {\n      role: \"settings-collection\",\n      file: \"<stem>.<collection>.settings.yume.js\",\n      job: \"Start as empty setting books such as world, characters, places, groups, objects, rules, and events.\"\n    },\n    {\n      role: \"evidence-log\",\n      file: \"<stem>.world.facts.yume.js\",\n      job: \"Store redundant source-backed facts. Duplicates and contradictions remain visible until a focused view needs them.\"\n    },\n    {\n      role: \"focused-view\",\n      file: \"<target>.character.yume.js | <target>.place.yume.js | <stem>.world.yume.js\",\n      job: \"Merge only the facts needed for one character, place, rule, event, or world slice.\"\n    }\n  ],\n  intermediateFiles: {\n    defaultDir: \".yume-work/<stem>-<runHash>/\",\n    keepByDefault: true,\n    cleanFlag: \"--clean-workdir\",\n    files: [\n      \"manifest.json\",\n      \"source.index.json\",\n      \"terms.index.json\",\n      \"occurrences.jsonl\",\n      \"terms.raw.jsonl\",\n      \"relations.raw.jsonl\",\n      \"facts.raw.jsonl\",\n      \"chunks/chunk-0001.txt\"\n    ],\n    rules: [\n      \"Keep cache/intermediate files when debugging, resuming, or comparing changed source chunks.\",\n      \"It is acceptable to delete intermediates after successful output if the source txt and generated yume files are enough.\",\n      \"Never rely on intermediate files as the only copy of user source text.\",\n      \"Ignore .yume-work in Git unless a specific fixture is intentionally added.\"\n    ]\n  },\n  pipeline: [\n    {\n      step: 1,\n      name: \"source snapshot\",\n      output: \"source-index\",\n      rule: \"Hash and chunk the txt before asking an AI to understand it.\",\n      command: \"npm run ingest:novel -- input.txt --stem novel\"\n    },\n    {\n      step: 2,\n      name: \"term candidate extraction\",\n      output: \"term-index\",\n      rule: \"Extract more candidate words and phrases than needed. Classification is only a hint.\"\n    },\n    {\n      step: 3,\n      name: \"relation description\",\n      output: \"relation-index\",\n      rule: \"Create the relations file from term nodes first, then describe source-backed edges gradually.\",\n      command: \"node tools/novel-relation-extract.js --relation-index <file> --from <term> --to <term> --kind <kind> --claim <claim> --chunk <chunkId>\"\n    },\n    {\n      step: 4,\n      name: \"settings catalog creation\",\n      output: \"settings-catalog and empty settings collections\",\n      rule: \"Create many empty setting collections and a catalog so terms can point to multiple possible setting books.\"\n    },\n    {\n      step: 5,\n      name: \"evidence fact extraction\",\n      output: \"evidence-log\",\n      rule: \"Use source chunks, term windows, relation edges, and settings catalog lookup to write small facts with source pointers. Keep duplicates.\",\n      command: \"node tools/novel-fact-extract.js --fact-log <file> --term <term> --claim <claim> --chunk <chunkId> --line-start <n> --line-end <n>\"\n    },\n    {\n      step: 6,\n      name: \"focused normalization\",\n      output: \"settings collection entries or focused-view\",\n      rule: \"Normalize one target at a time into the relevant setting collection. A term may belong to more than one collection.\",\n      command: \"node tools/novel-settings-normalize.js --collection <file> --catalog <file> --title <title> --summary <summary> --facts <ids> --relations <ids> --evidence <refs>\"\n    },\n    {\n      step: 7,\n      name: \"incremental refresh\",\n      output: \"updated indexes and affected views\",\n      rule: \"Reprocess only chunks whose hash changed. Refresh views only when their evidence changed.\"\n    }\n  ],\n  agentRules: [\n    \"Do not promise a clean final world file as the first artifact for a long txt.\",\n    \"First create or update source-index and term-index.\",\n    \"Create the relation-index as an empty graph from term nodes before writing world facts.\",\n    \"Create the settings catalog and multiple empty settings collections before filling facts.\",\n    \"Allow a term to map to multiple collections and multiple index sources.\",\n    \"Treat duplicate facts as evidence, not as cleanup debt.\",\n    \"When a fact is uncertain, keep it with confidence uncertain and source pointers.\",\n    \"Move from evidence-log to focused-view only when the target is known.\"\n  ],\n  qualityChecks: [\n    \"source-index has chunk ids, line ranges, hashes, and no full raw txt\",\n    \"term-index lets an AI jump from a term to source chunks\",\n    \"relation-index starts with term nodes and empty relations before focused reading\",\n    \"settings catalog maps terms to candidate collections and preserves multiple index sources\",\n    \"settings collections start empty and can be filled independently\",\n    \"world facts are traceable to source chunks and line ranges\",\n    \"focused views separate merged facts, uncertain facts, and open conflicts\",\n    \"incremental runs do not redo unchanged chunks\"\n  ]\n};\n\nexport default NovelSourceIngestWorkflow;\n",
+      "ts": 1778672237720,
+      "refs": [],
+      "tags": [
+        "novel",
+        "ingest",
+        "workflow",
+        "source-index",
+        "term-index",
+        "relation-index",
+        "settings-catalog",
+        "evidence-log",
+        "intermediate-files"
+      ],
+      "applyId": "apply-2026-05-13-1278ce1e"
     }
   ],
   "notes": {
@@ -93,6 +112,14 @@ export const __block = {
         "ts": 1778669384229,
         "text": "add settings catalog stage for term lookup",
         "kind": "workflow"
+      }
+    ],
+    "apply:apply-2026-05-13-1278ce1e": [
+      {
+        "id": "n-718ffdf1-a146-4f94-8187-0e149ac47fc9",
+        "author": "human",
+        "ts": 1778672237725,
+        "text": "update pipeline with new extraction and normalization tools"
       }
     ]
   }
@@ -182,7 +209,8 @@ export const NovelSourceIngestWorkflow = {
       step: 3,
       name: "relation description",
       output: "relation-index",
-      rule: "Create the relations file from term nodes first, then describe source-backed edges gradually."
+      rule: "Create the relations file from term nodes first, then describe source-backed edges gradually.",
+      command: "node tools/novel-relation-extract.js --relation-index <file> --from <term> --to <term> --kind <kind> --claim <claim> --chunk <chunkId>"
     },
     {
       step: 4,
@@ -194,13 +222,15 @@ export const NovelSourceIngestWorkflow = {
       step: 5,
       name: "evidence fact extraction",
       output: "evidence-log",
-      rule: "Use source chunks, term windows, relation edges, and settings catalog lookup to write small facts with source pointers. Keep duplicates."
+      rule: "Use source chunks, term windows, relation edges, and settings catalog lookup to write small facts with source pointers. Keep duplicates.",
+      command: "node tools/novel-fact-extract.js --fact-log <file> --term <term> --claim <claim> --chunk <chunkId> --line-start <n> --line-end <n>"
     },
     {
       step: 6,
       name: "focused normalization",
       output: "settings collection entries or focused-view",
-      rule: "Normalize one target at a time into the relevant setting collection. A term may belong to more than one collection."
+      rule: "Normalize one target at a time into the relevant setting collection. A term may belong to more than one collection.",
+      command: "node tools/novel-settings-normalize.js --collection <file> --catalog <file> --title <title> --summary <summary> --facts <ids> --relations <ids> --evidence <refs>"
     },
     {
       step: 7,
