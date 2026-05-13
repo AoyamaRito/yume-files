@@ -37,12 +37,41 @@ export const __block = {
         "intermediate-files"
       ],
       "applyId": null
+    },
+    {
+      "hash": "647d7a6de7da0fe7e29a7d33e2e0191379abdb8d99505017790992f13b07934b",
+      "prevHash": "deeab23c410d8d3ab7ce0e91b5117b533d617a56ef9f88f1a0a20c689f19eb6e",
+      "content": "// @tags: novel ingest workflow source-index term-index relation-index evidence-log intermediate-files\n\nexport const NovelSourceIngestWorkflow = {\n  id: \"novel-source-ingest\",\n  purpose: \"Read a long novel txt without forcing an eager clean world model.\",\n  coreHypothesis: \"The slow path is eager cleanup: extraction, deduplication, contradiction handling, naming cleanup, and schema polishing in one AI pass.\",\n  principle: \"Ingest first, normalize later.\",\n  artifacts: [\n    {\n      role: \"source-index\",\n      file: \"<stem>.source.index.yume.js\",\n      job: \"Store source hash, line count, stable chunk ids, chunk hashes, and short previews. Do not store the full txt.\"\n    },\n    {\n      role: \"term-index\",\n      file: \"<stem>.terms.index.yume.js\",\n      job: \"Store candidate terms, phrase occurrences, kind hints, nearby terms, and source chunk pointers.\"\n    },\n    {\n      role: \"relation-index\",\n      file: \"<stem>.relations.index.yume.js\",\n      job: \"Start from term nodes with empty relations. Fill evidence-backed term relations after focused reading.\"\n    },\n    {\n      role: \"evidence-log\",\n      file: \"<stem>.world.facts.yume.js\",\n      job: \"Store redundant source-backed facts. Duplicates and contradictions remain visible until a focused view needs them.\"\n    },\n    {\n      role: \"focused-view\",\n      file: \"<target>.character.yume.js | <target>.place.yume.js | <stem>.world.yume.js\",\n      job: \"Merge only the facts needed for one character, place, rule, event, or world slice.\"\n    }\n  ],\n  intermediateFiles: {\n    defaultDir: \".yume-work/<stem>-<runHash>/\",\n    keepByDefault: true,\n    cleanFlag: \"--clean-workdir\",\n    files: [\n      \"manifest.json\",\n      \"source.index.json\",\n      \"terms.index.json\",\n      \"occurrences.jsonl\",\n      \"terms.raw.jsonl\",\n      \"relations.raw.jsonl\",\n      \"facts.raw.jsonl\",\n      \"chunks/chunk-0001.txt\"\n    ],\n    rules: [\n      \"Keep cache/intermediate files when debugging, resuming, or comparing changed source chunks.\",\n      \"It is acceptable to delete intermediates after successful output if the source txt and generated yume files are enough.\",\n      \"Never rely on intermediate files as the only copy of user source text.\",\n      \"Ignore .yume-work in Git unless a specific fixture is intentionally added.\"\n    ]\n  },\n  pipeline: [\n    {\n      step: 1,\n      name: \"source snapshot\",\n      output: \"source-index\",\n      rule: \"Hash and chunk the txt before asking an AI to understand it.\",\n      command: \"npm run ingest:novel -- input.txt --stem novel\"\n    },\n    {\n      step: 2,\n      name: \"term candidate extraction\",\n      output: \"term-index\",\n      rule: \"Extract more candidate words and phrases than needed. Classification is only a hint.\"\n    },\n    {\n      step: 3,\n      name: \"relation description\",\n      output: \"relation-index\",\n      rule: \"Create the relations file from term nodes first, then describe source-backed edges gradually.\"\n    },\n    {\n      step: 4,\n      name: \"evidence fact extraction\",\n      output: \"evidence-log\",\n      rule: \"Use source chunks, term windows, and relation edges to write small facts with source pointers. Keep duplicates.\"\n    },\n    {\n      step: 5,\n      name: \"focused normalization\",\n      output: \"focused-view\",\n      rule: \"Normalize one target at a time, such as one character, place, group, event, or timeline slice.\"\n    },\n    {\n      step: 6,\n      name: \"incremental refresh\",\n      output: \"updated indexes and affected views\",\n      rule: \"Reprocess only chunks whose hash changed. Refresh views only when their evidence changed.\"\n    }\n  ],\n  agentRules: [\n    \"Do not promise a clean final world file as the first artifact for a long txt.\",\n    \"First create or update source-index and term-index.\",\n    \"Create the relation-index as an empty graph from term nodes before writing world facts.\",\n    \"Treat duplicate facts as evidence, not as cleanup debt.\",\n    \"When a fact is uncertain, keep it with confidence uncertain and source pointers.\",\n    \"Move from evidence-log to focused-view only when the target is known.\"\n  ],\n  qualityChecks: [\n    \"source-index has chunk ids, line ranges, hashes, and no full raw txt\",\n    \"term-index lets an AI jump from a term to source chunks\",\n    \"relation-index starts with term nodes and empty relations before focused reading\",\n    \"world facts are traceable to source chunks and line ranges\",\n    \"focused views separate merged facts, uncertain facts, and open conflicts\",\n    \"incremental runs do not redo unchanged chunks\"\n  ]\n};\n\nexport default NovelSourceIngestWorkflow;\n",
+      "ts": 1778668995966,
+      "refs": [],
+      "tags": [
+        "novel",
+        "ingest",
+        "workflow",
+        "source-index",
+        "term-index",
+        "relation-index",
+        "evidence-log",
+        "intermediate-files"
+      ],
+      "applyId": "apply-2026-05-13-0838aa7c"
     }
-  ]
+  ],
+  "notes": {
+    "apply:apply-2026-05-13-0838aa7c": [
+      {
+        "id": "n-b84daf37-d54a-4194-88b1-0dc4ccf6faab",
+        "author": "codex",
+        "ts": 1778668995970,
+        "text": "add relation-index stage before world facts",
+        "kind": "workflow"
+      }
+    ]
+  }
 };
 
 // === HEAD ===
-// @tags: novel ingest workflow source-index term-index evidence-log intermediate-files
+// @tags: novel ingest workflow source-index term-index relation-index evidence-log intermediate-files
 
 export const NovelSourceIngestWorkflow = {
   id: "novel-source-ingest",
@@ -59,6 +88,11 @@ export const NovelSourceIngestWorkflow = {
       role: "term-index",
       file: "<stem>.terms.index.yume.js",
       job: "Store candidate terms, phrase occurrences, kind hints, nearby terms, and source chunk pointers."
+    },
+    {
+      role: "relation-index",
+      file: "<stem>.relations.index.yume.js",
+      job: "Start from term nodes with empty relations. Fill evidence-backed term relations after focused reading."
     },
     {
       role: "evidence-log",
@@ -81,6 +115,7 @@ export const NovelSourceIngestWorkflow = {
       "terms.index.json",
       "occurrences.jsonl",
       "terms.raw.jsonl",
+      "relations.raw.jsonl",
       "facts.raw.jsonl",
       "chunks/chunk-0001.txt"
     ],
@@ -107,18 +142,24 @@ export const NovelSourceIngestWorkflow = {
     },
     {
       step: 3,
-      name: "evidence fact extraction",
-      output: "evidence-log",
-      rule: "Use source chunks and term windows to write small facts with source pointers. Keep duplicates."
+      name: "relation description",
+      output: "relation-index",
+      rule: "Create the relations file from term nodes first, then describe source-backed edges gradually."
     },
     {
       step: 4,
+      name: "evidence fact extraction",
+      output: "evidence-log",
+      rule: "Use source chunks, term windows, and relation edges to write small facts with source pointers. Keep duplicates."
+    },
+    {
+      step: 5,
       name: "focused normalization",
       output: "focused-view",
       rule: "Normalize one target at a time, such as one character, place, group, event, or timeline slice."
     },
     {
-      step: 5,
+      step: 6,
       name: "incremental refresh",
       output: "updated indexes and affected views",
       rule: "Reprocess only chunks whose hash changed. Refresh views only when their evidence changed."
@@ -127,6 +168,7 @@ export const NovelSourceIngestWorkflow = {
   agentRules: [
     "Do not promise a clean final world file as the first artifact for a long txt.",
     "First create or update source-index and term-index.",
+    "Create the relation-index as an empty graph from term nodes before writing world facts.",
     "Treat duplicate facts as evidence, not as cleanup debt.",
     "When a fact is uncertain, keep it with confidence uncertain and source pointers.",
     "Move from evidence-log to focused-view only when the target is known."
@@ -134,6 +176,7 @@ export const NovelSourceIngestWorkflow = {
   qualityChecks: [
     "source-index has chunk ids, line ranges, hashes, and no full raw txt",
     "term-index lets an AI jump from a term to source chunks",
+    "relation-index starts with term nodes and empty relations before focused reading",
     "world facts are traceable to source chunks and line ranges",
     "focused views separate merged facts, uncertain facts, and open conflicts",
     "incremental runs do not redo unchanged chunks"

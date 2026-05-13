@@ -152,26 +152,33 @@ try {
 
   const sourceIndexFile = join(outDir, 'sample-novel.source.index.yume.js');
   const termsIndexFile = join(outDir, 'sample-novel.terms.index.yume.js');
+  const relationsFile = join(outDir, 'sample-novel.relations.index.yume.js');
   const factsFile = join(outDir, 'sample-novel.world.facts.yume.js');
   const sourceParsed = parseBlock(await readFile(sourceIndexFile, 'utf8'));
   const termsParsed = parseBlock(await readFile(termsIndexFile, 'utf8'));
+  const relationsParsed = parseBlock(await readFile(relationsFile, 'utf8'));
   const factsParsed = parseBlock(await readFile(factsFile, 'utf8'));
   assert(validateBlock(sourceParsed.block).ok, 'generated source index validates');
   assert(validateBlock(termsParsed.block).ok, 'generated terms index validates');
+  assert(validateBlock(relationsParsed.block).ok, 'generated relations index validates');
   assert(validateBlock(factsParsed.block).ok, 'generated fact log validates');
 
   const sourceModule = await import(`${pathToFileURL(sourceIndexFile).href}?e2e=${Date.now()}-source`);
   const termsModule = await import(`${pathToFileURL(termsIndexFile).href}?e2e=${Date.now()}-terms`);
+  const relationsModule = await import(`${pathToFileURL(relationsFile).href}?e2e=${Date.now()}-relations`);
   const factsModule = await import(`${pathToFileURL(factsFile).href}?e2e=${Date.now()}-facts`);
   assert(sourceModule.SourceIndex.chunks.length === 3, 'source index chunks txt by requested line count');
   assert(!('text' in sourceModule.SourceIndex.chunks[0]), 'source index omits full chunk text from yume output');
   const generatedTerms = termsModule.TermIndex.terms.map((term) => term.term);
   assert(generatedTerms.includes('ミラ'), 'term index extracts katakana name candidate');
   assert(generatedTerms.includes('北塔'), 'term index extracts kanji place candidate');
+  assert(relationsModule.RelationIndex.nodes.some((node) => node.term === 'ミラ'), 'relations index starts from term nodes');
+  assert(relationsModule.RelationIndex.relations.length === 0, 'relations index starts with empty relations');
+  assert(existsSync(join(outDir, sourceModule.SourceIndex.workdir.path, 'relations.raw.jsonl')), 'novel ingest creates empty raw relations intermediate');
   assert(factsModule.WorldFactLog.facts.length === 0, 'fact log starts empty before AI extraction');
   assert(factsModule.WorldFactLog.extractionQueue.length > 0, 'fact log carries extraction queue from terms');
   assert(existsSync(join(outDir, '.yume-work')), 'novel ingest keeps intermediate workdir by default');
-  const generatedRefs = await refsCheck([sourceIndexFile, termsIndexFile, factsFile]);
+  const generatedRefs = await refsCheck([sourceIndexFile, termsIndexFile, relationsFile, factsFile]);
   assert(generatedRefs.ok && generatedRefs.errors.length === 0, 'generated ingest yume refs-check passes');
 } finally {
   await rm(ingestTmp, { recursive: true, force: true });

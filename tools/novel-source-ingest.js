@@ -130,6 +130,7 @@ async function main(argv = process.argv.slice(2)) {
     outputs: {
       sourceIndex: `${stem}.source.index.yume.js`,
       termIndex: `${stem}.terms.index.yume.js`,
+      relationIndex: `${stem}.relations.index.yume.js`,
       factLog: `${stem}.world.facts.yume.js`,
     },
   });
@@ -139,10 +140,12 @@ async function main(argv = process.argv.slice(2)) {
   await writeJson(join(workDir, 'terms.index.json'), termIndexJson);
   await writeJsonl(join(workDir, 'occurrences.jsonl'), occurrences);
   await writeJsonl(join(workDir, 'terms.raw.jsonl'), terms);
+  await atomicWrite(join(workDir, 'relations.raw.jsonl'), '');
   await atomicWrite(join(workDir, 'facts.raw.jsonl'), '');
 
   const sourceIndexFile = join(outputDir, `${stem}.source.index.yume.js`);
   const termIndexFile = join(outputDir, `${stem}.terms.index.yume.js`);
+  const relationIndexFile = join(outputDir, `${stem}.relations.index.yume.js`);
   const factLogFile = join(outputDir, `${stem}.world.facts.yume.js`);
   const workdirStatus = options.cleanWorkdir ? 'cleaned-after-success' : 'available';
 
@@ -161,6 +164,21 @@ async function main(argv = process.argv.slice(2)) {
       terms: yumeTerms,
     }),
   }));
+  writes.push(await writeYumeFile(relationIndexFile, {
+    blockId: blockIdFromStem(stem, 'RelationsIndex'),
+    type: 'relations.index',
+    head: relationIndexHead({
+      sourceId,
+      sourceHash,
+      sourceIndexFile: `./${basename(sourceIndexFile)}`,
+      termIndexFile: `./${basename(termIndexFile)}`,
+      workdir: {
+        path: relativePath(outputDir, workDir),
+        status: workdirStatus,
+      },
+      terms: yumeTerms,
+    }),
+  }));
   writes.push(await writeYumeFile(factLogFile, {
     blockId: blockIdFromStem(stem, 'WorldFacts'),
     type: 'world.facts',
@@ -169,6 +187,7 @@ async function main(argv = process.argv.slice(2)) {
       sourceHash,
       sourceIndexFile: `./${basename(sourceIndexFile)}`,
       termIndexFile: `./${basename(termIndexFile)}`,
+      relationIndexFile: `./${basename(relationIndexFile)}`,
       workdir: {
         path: relativePath(outputDir, workDir),
         status: workdirStatus,
@@ -555,9 +574,9 @@ export default TermIndex;
 `;
 }
 
-function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, workdir, extractionQueue }) {
-  const log = {
-    id: `${sourceId}-world-facts`,
+function relationIndexHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, workdir, terms }) {
+  const index = {
+    id: `${sourceId}-relations`,
     tool: TOOL_VERSION,
     generatedAt: new Date().toISOString(),
     source: {
@@ -567,14 +586,59 @@ function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, wor
       termIndexFile,
     },
     workdir,
+    status: 'awaiting-relation-description',
+    rule: 'Start from term nodes only. Describe evidence-backed relations after inspecting focused source chunks.',
+    nodes: terms.map((term) => ({
+      term: term.term,
+      count: term.count,
+      spread: term.spread,
+      kindHints: term.kindHints,
+      sampleOccurrences: term.occurrences.slice(0, 5),
+    })),
+    relations: [],
+    relationShape: {
+      id: 'rel-000001',
+      from: 'term',
+      to: 'related term',
+      kind: 'appears-with | belongs-to | located-in | uses | opposes | aliases | unknown',
+      claim: 'small source-backed relation description',
+      source: [{ chunkId: 'chunk-0001', lineStart: 1, lineEnd: 4 }],
+      confidence: 'source | inferred | uncertain',
+      status: 'draft',
+    },
+  };
+  return `// @tags: novel ingest relation-index relation-graph generated
+// @ref: ${sourceIndexFile}
+// @ref: ${termIndexFile}
+
+export const RelationIndex = ${json(index)};
+
+export default RelationIndex;
+`;
+}
+
+function factLogHead({ sourceId, sourceHash, sourceIndexFile, termIndexFile, relationIndexFile, workdir, extractionQueue }) {
+  const log = {
+    id: `${sourceId}-world-facts`,
+    tool: TOOL_VERSION,
+    generatedAt: new Date().toISOString(),
+    source: {
+      sourceId,
+      sourceHash,
+      sourceIndexFile,
+      termIndexFile,
+      relationIndexFile,
+    },
+    workdir,
     status: 'awaiting-ai-extraction',
-    rule: 'Keep redundant source-backed facts. Merge later only for focused views.',
+    rule: 'Use the relation index as the next reading map. Keep redundant source-backed facts and merge later only for focused views.',
     facts: [],
     extractionQueue,
   };
   return `// @tags: novel ingest world-facts evidence-log generated
 // @ref: ${sourceIndexFile}
 // @ref: ${termIndexFile}
+// @ref: ${relationIndexFile}
 
 export const WorldFactLog = ${json(log)};
 
