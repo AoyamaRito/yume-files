@@ -1063,12 +1063,26 @@ export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}
       prepared.push({ entry, section, parsed });
     }
 
-    for (const { entry, section, parsed } of prepared) {
-      parsed.head = section.content;
-      const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
-      await atomicWrite(entry.file, serializeBlock(parsed));
-      updated.push(entry.relativeFile);
-      newHashes[entry.relativeFile] = version.hash;
+    const originals = new Map();
+    for (const { entry } of prepared) {
+      originals.set(entry.file, await readFile(entry.file, 'utf8'));
+    }
+
+    const writtenFiles = [];
+    try {
+      for (const { entry, section, parsed } of prepared) {
+        parsed.head = section.content;
+        const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
+        await atomicWrite(entry.file, serializeBlock(parsed));
+        writtenFiles.push(entry.file);
+        updated.push(entry.relativeFile);
+        newHashes[entry.relativeFile] = version.hash;
+      }
+    } catch (e) {
+      for (const file of writtenFiles) {
+        try { await atomicWrite(file, originals.get(file)); } catch {}
+      }
+      throw e;
     }
   } finally {
     await release();

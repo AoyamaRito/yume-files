@@ -16,7 +16,7 @@
 
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { readFile, mkdir, rm, cp, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, rm, cp, writeFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -555,6 +555,21 @@ try { await heavyApply([partialAFile, partialBFile], 'partialA', staleMultiEdite
 const partialAAfterStale = await history(partialAFile);
 assert(staleMultiRefused, 'heavyApply refuses stale multi-file view');
 assert(partialAAfterStale.length === 1 && partialAAfterStale[0].content.includes('partialA = 1'), 'heavyApply does not partially update earlier files on stale multi-file view');
+
+// rollback on write failure: delete partialBFile mid-apply to force atomicWrite failure
+const partialCFile = join(tmpDir, 'partialC.fn.yume.js');
+const partialDFile = join(tmpDir, 'partialD.fn.yume.js');
+await writeFixture(partialCFile, { id: 'partialC', type: 'fn', content: 'export const partialC = 1;\n// @ref: partialD\n', ts: 1714000010000 });
+await writeFixture(partialDFile, { id: 'partialD', type: 'fn', content: 'export const partialD = 1;\n', ts: 1714000011000 });
+const cdView = await heavy([partialCFile, partialDFile], 'partialC', 1);
+const cdViewEdited = cdView.replace('partialC = 1', 'partialC = 2').replace('partialD = 1', 'partialD = 2');
+await unlink(partialDFile);
+let rollbackError = null;
+try { await heavyApply([partialCFile, partialDFile], 'partialC', cdViewEdited, 1); } catch (e) { rollbackError = e; }
+const partialCAfterRollback = await history(partialCFile);
+assert(rollbackError !== null, 'heavyApply throws on write failure');
+assert(partialCAfterRollback.length === 1 && partialCAfterRollback[0].content.includes('partialC = 1'), 'heavyApply rolls back already-written files on write failure');
+await writeFixture(partialDFile, { id: 'partialD', type: 'fn', content: 'export const partialD = 1;\n', ts: 1714000011000 });
 
 const worldFile = join(tmpDir, 'novel.world.yume.js');
 const chapterOneFile = join(tmpDir, 'chapter-one.draft.yume.js');
