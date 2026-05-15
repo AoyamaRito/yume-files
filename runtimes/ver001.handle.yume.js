@@ -682,8 +682,15 @@ export function validateBlock(block) {
   }
   if (block.versions.length === 0) errors.push('versions must contain at least one entry');
   if (block.notes !== undefined && !isPlainObject(block.notes)) errors.push('notes must be an object when present');
+  if (block.trimmedAt !== undefined) {
+    if (!isPlainObject(block.trimmedAt)) errors.push('trimmedAt must be an object when present');
+    else {
+      if (typeof block.trimmedAt.count !== 'number') errors.push('trimmedAt.count must be a number');
+      if (typeof block.trimmedAt.lastHash !== 'string' || !/^[0-9a-f]{64}$/.test(block.trimmedAt.lastHash)) errors.push('trimmedAt.lastHash must be sha256 hex');
+    }
+  }
 
-  let prevHash = null;
+  let prevHash = block.trimmedAt?.lastHash ?? null;
   for (let i = 0; i < block.versions.length; i++) {
     const v = block.versions[i];
     const prefix = `versions[${i}]`;
@@ -1823,6 +1830,57 @@ export async function rollback(fileUrl, target, opts = {}) {
 }
 
 // ============================================================
+// trimVersions — archive old versions to sibling .archive.yume.js
+// ============================================================
+export async function trimVersions(fileUrl, opts = {}) {
+  globalThis.__yumeCoverHook?.('trimVersions', arguments);
+  const keep = (typeof opts.keep === 'number' && opts.keep >= 1) ? Math.floor(opts.keep) : 5;
+  const filePath = toPath(fileUrl);
+  const release = await acquireLock(filePath);
+  try {
+    const parsed = await readParsedFile(filePath);
+    const { block, head, boot } = parsed;
+    const total = block.versions.length;
+    if (total <= keep) return { trimmed: 0, kept: total };
+
+    const toArchive = block.versions.slice(0, total - keep);
+    const toKeep = block.versions.slice(total - keep);
+    const archivePath = filePath.replace(/\.yume\.js$/, '.archive.yume.js');
+
+    let existingVersions = [];
+    try {
+      const existingSrc = await readFile(archivePath, 'utf8');
+      const marker = 'export const __archive = ';
+      const start = existingSrc.indexOf(marker);
+      if (start !== -1) {
+        const jsonStr = existingSrc.slice(start + marker.length).replace(/;\s*$/, '');
+        existingVersions = JSON.parse(jsonStr).versions ?? [];
+      }
+    } catch { /* no existing archive */ }
+
+    const newArchive = { blockId: block.id, versions: [...existingVersions, ...toArchive] };
+    const archiveSrc = `// @yume-archive: 1\n// block: ${block.id}\nexport const __archive = ${JSON.stringify(newArchive, null, 2)};\n`;
+    await atomicWrite(archivePath, archiveSrc);
+
+    block.versions = toKeep;
+    block.trimmedAt = { count: newArchive.versions.length, lastHash: toArchive.at(-1).hash };
+
+    if (isPlainObject(block.notes)) {
+      const keptHashes = new Set(toKeep.map((v) => v.hash));
+      const keptApplyKeys = new Set(toKeep.filter((v) => v.applyId).map((v) => `apply:${v.applyId}`));
+      for (const key of Object.keys(block.notes)) {
+        if (!keptHashes.has(key) && !keptApplyKeys.has(key)) delete block.notes[key];
+      }
+    }
+
+    await atomicWrite(filePath, serializeBlock({ block, head, boot }));
+    return { trimmed: toArchive.length, kept: toKeep.length, archivePath };
+  } finally {
+    await release();
+  }
+}
+
+// ============================================================
 // cli — verb dispatcher(BOOT region から呼ばれる)
 // ============================================================
 export async function cli(fileUrl, block, argv) {
@@ -1844,6 +1902,10 @@ export async function cli(fileUrl, block, argv) {
     }
     case 'history': {
       const parsed = await readParsedFile(toPath(fileUrl));
+      if (parsed.block.trimmedAt) {
+        const archivePath = toPath(fileUrl).replace(/\.yume\.js$/, '.archive.yume.js');
+        console.log(`(+ ${parsed.block.trimmedAt.count} archived → ${archivePath})`);
+      }
       for (const v of parsed.block.versions) {
         const ts = new Date(v.ts).toISOString();
         const aid = v.applyId ?? '-';
@@ -1913,6 +1975,17 @@ export async function cli(fileUrl, block, argv) {
         } : undefined,
       });
       console.log(`rolled back: ${r.targetHash.slice(0, 7)} -> ${r.newHash.slice(0, 7)}  apply=${r.applyId ?? '-'}`);
+      return;
+    }
+    case 'trim': {
+      const keep = parseInt(flagValue(argv, '--keep') ?? '5', 10);
+      if (isNaN(keep) || keep < 1) return usage('trim [--keep N]  (N >= 1, default 5)');
+      const r = await trimVersions(fileUrl, { keep });
+      if (r.trimmed === 0) {
+        console.log(`nothing to trim (${r.kept} versions, keep=${keep})`);
+      } else {
+        console.log(`trimmed ${r.trimmed}  kept ${r.kept}  archive: ${r.archivePath}`);
+      }
       return;
     }
     case 'note-add': {

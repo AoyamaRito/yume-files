@@ -2,6 +2,7 @@
 node_modules/
 apps/
 .yume-work/
+*.archive.yume.js
 *.lock
 *.tmp.*
 npm-debug.log*
