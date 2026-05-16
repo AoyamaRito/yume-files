@@ -118,7 +118,7 @@ AI agent 向け runbook:
 
 ```sh
 npm run runbook
-node runAndReadMe.aiDoc.yume.js validate
+node runYume.js runAndReadMe.aiDoc.yume.js validate
 ```
 
 ### 人間から AI へのプロンプト例
@@ -196,102 +196,102 @@ npm run spec
 example file の検証:
 
 ```sh
-node examples/hello.fn.yume.js validate
+node runYume.js examples/hello.fn.yume.js validate
 ```
 
 履歴表示:
 
 ```sh
-node examples/hello.fn.yume.js history
+node runYume.js examples/hello.fn.yume.js history
 ```
 
 特定 version の表示と diff:
 
 ```sh
-node examples/hello.fn.yume.js show head
-node examples/hello.fn.yume.js diff 0 -1
+node runYume.js examples/hello.fn.yume.js show head
+node runYume.js examples/hello.fn.yume.js diff 0 -1
 ```
 
 最新 version の refs / tags を表示:
 
 ```sh
-node examples/hello.fn.yume.js refs
-node examples/hello.fn.yume.js tags
+node runYume.js examples/hello.fn.yume.js refs
+node runYume.js examples/hello.fn.yume.js tags
 ```
 
 関連 file を AI 編集用 view に展開:
 
 ```sh
-node examples/hello.fn.yume.js heavy hello 1 .
+node runYume.js examples/hello.fn.yume.js heavy hello 1 .
 ```
 
 参照している file から影響範囲を表示:
 
 ```sh
-node examples/hello.fn.yume.js impact hello 1 .
+node runYume.js examples/hello.fn.yume.js impact hello 1 .
 ```
 
 refs graph を検査:
 
 ```sh
-node examples/hello.fn.yume.js refs-check .
-node examples/hello.fn.yume.js refs-check . --json
+node runYume.js examples/hello.fn.yume.js refs-check .
+node runYume.js examples/hello.fn.yume.js refs-check . --json
 ```
 
 編集済み view を `.yume.js` に戻す:
 
 ```sh
-node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
+node runYume.js examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
 ```
 
 手動編集後に HEAD を commit:
 
 ```sh
-node examples/hello.fn.yume.js commit
+node runYume.js examples/hello.fn.yume.js commit
 ```
 
 applyId と apply note 付きで commit:
 
 ```sh
-node examples/hello.fn.yume.js commit --apply-id apply-demo-001 --note "changed greeting"
+node runYume.js examples/hello.fn.yume.js commit --apply-id apply-demo-001 --note "changed greeting"
 ```
 
 直前の version へ rollback:
 
 ```sh
-node examples/hello.fn.yume.js rollback -1 --note "restore previous behavior"
+node runYume.js examples/hello.fn.yume.js rollback -1 --note "restore previous behavior"
 ```
 
 最新 version に note を追加:
 
 ```sh
-node examples/hello.fn.yume.js note-add head "why this version exists"
+node runYume.js examples/hello.fn.yume.js note-add head "why this version exists"
 ```
 
 note を表示:
 
 ```sh
-node examples/hello.fn.yume.js note-list
+node runYume.js examples/hello.fn.yume.js note-list
 ```
 
 folder 内の note を検索:
 
 ```sh
-node examples/hello.fn.yume.js notes-search . "why"
+node runYume.js examples/hello.fn.yume.js notes-search . "why"
 ```
 
 apply group を表示:
 
 ```sh
-node examples/hello.fn.yume.js apply-list
-node examples/hello.fn.yume.js apply-show apply-demo-001
+node runYume.js examples/hello.fn.yume.js apply-list
+node runYume.js examples/hello.fn.yume.js apply-show apply-demo-001
 ```
 
 folder 内の apply group を横断検索:
 
 ```sh
-node examples/hello.fn.yume.js apply-index .
-node examples/hello.fn.yume.js apply-search . apply-demo-001
+node runYume.js examples/hello.fn.yume.js apply-index .
+node runYume.js examples/hello.fn.yume.js apply-search . apply-demo-001
 ```
 
 ### ファイル構成
@@ -435,102 +435,102 @@ npm run spec
 Validate the example file:
 
 ```sh
-node examples/hello.fn.yume.js validate
+node runYume.js examples/hello.fn.yume.js validate
 ```
 
 Show history:
 
 ```sh
-node examples/hello.fn.yume.js history
+node runYume.js examples/hello.fn.yume.js history
 ```
 
 Show a specific version and diff versions:
 
 ```sh
-node examples/hello.fn.yume.js show head
-node examples/hello.fn.yume.js diff 0 -1
+node runYume.js examples/hello.fn.yume.js show head
+node runYume.js examples/hello.fn.yume.js diff 0 -1
 ```
 
 Show latest refs / tags:
 
 ```sh
-node examples/hello.fn.yume.js refs
-node examples/hello.fn.yume.js tags
+node runYume.js examples/hello.fn.yume.js refs
+node runYume.js examples/hello.fn.yume.js tags
 ```
 
 Expand related files into an AI-editable view:
 
 ```sh
-node examples/hello.fn.yume.js heavy hello 1 .
+node runYume.js examples/hello.fn.yume.js heavy hello 1 .
 ```
 
 Show the files impacted by a Block:
 
 ```sh
-node examples/hello.fn.yume.js impact hello 1 .
+node runYume.js examples/hello.fn.yume.js impact hello 1 .
 ```
 
 Check the refs graph:
 
 ```sh
-node examples/hello.fn.yume.js refs-check .
-node examples/hello.fn.yume.js refs-check . --json
+node runYume.js examples/hello.fn.yume.js refs-check .
+node runYume.js examples/hello.fn.yume.js refs-check . --json
 ```
 
 Write an edited view back into `.yume.js` files:
 
 ```sh
-node examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
+node runYume.js examples/hello.fn.yume.js heavy-apply view.txt hello 1 . --note "AI edited view"
 ```
 
 Commit a manually edited `HEAD` region:
 
 ```sh
-node examples/hello.fn.yume.js commit
+node runYume.js examples/hello.fn.yume.js commit
 ```
 
 Commit with an applyId and apply note:
 
 ```sh
-node examples/hello.fn.yume.js commit --apply-id apply-demo-001 --note "changed greeting"
+node runYume.js examples/hello.fn.yume.js commit --apply-id apply-demo-001 --note "changed greeting"
 ```
 
 Rollback to the previous version:
 
 ```sh
-node examples/hello.fn.yume.js rollback -1 --note "restore previous behavior"
+node runYume.js examples/hello.fn.yume.js rollback -1 --note "restore previous behavior"
 ```
 
 Add a note to the latest version:
 
 ```sh
-node examples/hello.fn.yume.js note-add head "why this version exists"
+node runYume.js examples/hello.fn.yume.js note-add head "why this version exists"
 ```
 
 List notes:
 
 ```sh
-node examples/hello.fn.yume.js note-list
+node runYume.js examples/hello.fn.yume.js note-list
 ```
 
 Search notes across a folder:
 
 ```sh
-node examples/hello.fn.yume.js notes-search . "why"
+node runYume.js examples/hello.fn.yume.js notes-search . "why"
 ```
 
 Show apply groups:
 
 ```sh
-node examples/hello.fn.yume.js apply-list
-node examples/hello.fn.yume.js apply-show apply-demo-001
+node runYume.js examples/hello.fn.yume.js apply-list
+node runYume.js examples/hello.fn.yume.js apply-show apply-demo-001
 ```
 
 Search apply groups across a folder:
 
 ```sh
-node examples/hello.fn.yume.js apply-index .
-node examples/hello.fn.yume.js apply-search . apply-demo-001
+node runYume.js examples/hello.fn.yume.js apply-index .
+node runYume.js examples/hello.fn.yume.js apply-search . apply-demo-001
 ```
 
 ### Repository Layout

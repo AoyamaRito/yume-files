@@ -42,5 +42,5 @@ All notable changes to `yume-files` are summarized here.
 ### Verified
 
 - `npm test`
-- `node runAndReadMe.aiDoc.yume.js validate`
-- `node examples/hello.fn.yume.js refs-check .`
+- `node runYume.js runAndReadMe.aiDoc.yume.js validate`
+- `node runYume.js examples/hello.fn.yume.js refs-check .`

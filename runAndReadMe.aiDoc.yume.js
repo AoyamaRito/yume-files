@@ -377,11 +377,3 @@ export const RunAndReadMe = {
 export default RunAndReadMe;
 
 // === /HEAD ===
-
-// === BOOT ===
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const path = __block.runtime.path ?? `./runtimes/ver${__block.runtime.version}.handle.yume.js`;
-  const rt = await import(path);
-  await rt.cli(import.meta.url, __block, process.argv);
-}
-// === /BOOT ===

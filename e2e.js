@@ -89,7 +89,7 @@ async function writeFixture(file, { id, type, content, ts }) {
     applyId: null,
   }];
   p.head = content;
-  p.boot = p.boot.replace('../runtimes/ver', './runtimes/ver');
+  // boot handled
   await atomicWrite(file, serializeBlock(p));
 }
 
@@ -119,11 +119,9 @@ assert(parsed.block.type === 'fn', 'block.type is fn');
 assert(parsed.block.runtime.version === '001', 'runtime.version is 001');
 assert(parsed.block.versions.length === 1, 'has 1 initial version');
 assert(parsed.head.includes('export function hello'), 'head contains hello function');
-assert(parsed.boot && parsed.boot.includes('import.meta.url'), 'boot region present');
 assert(validateBlock(parsed.block).ok, 'block validates hash chain');
 const parsedCrlf = parseBlock(helloSource.replace(/\n/g, '\r\n'));
 assert(parsedCrlf.head === parsed.head, 'parseBlock handles CRLF HEAD boundaries');
-assert(parsedCrlf.boot === parsed.boot, 'parseBlock handles CRLF BOOT boundaries');
 
 // ============================================================
 // 1b. parseBlock safety
@@ -171,14 +169,10 @@ inner content
 export const real = "preserved";
 // === /HEAD ===
 
-// === BOOT ===
-console.log("boot region");
-// === /BOOT ===
 `;
 const nested = parseBlock(nestedSource);
 assert(nested.head.includes('export const real = "preserved";'), 'parseBlock skips marker literals inside string/template');
 assert(nested.head.includes('// === HEAD ==='), 'string-bound marker literal preserved in HEAD content');
-assert(nested.boot.trim() === 'console.log("boot region");', 'BOOT extracted past nested HEAD markers');
 
 // ============================================================
 // 2. serializeBlock round-trip
@@ -188,7 +182,6 @@ const re = serializeBlock(parsed);
 const reparsed = parseBlock(re);
 assert(eq(parsed.block, reparsed.block), 'block round-trip equal');
 assert(parsed.head === reparsed.head, 'head round-trip equal');
-assert(parsed.boot === reparsed.boot, 'boot round-trip equal');
 
 // ============================================================
 // 3. hashContent
@@ -283,13 +276,9 @@ await cp(RUNTIME_SRC, join(tmpDir, 'runtimes', 'ver001.handle.yume.js'));
 const tmpFile = join(tmpDir, 'hello.fn.yume.js');
 await cp(HELLO_SRC, tmpFile);
 // Fix the BOOT path — example uses ../runtimes/, but tmp layout has ./runtimes/
-{
-  let s = await readFile(tmpFile, 'utf8');
-  s = s.replace('../runtimes/ver', './runtimes/ver');
-  await atomicWrite(tmpFile, s);
-}
+await atomicWrite(tmpFile, await readFile(tmpFile, 'utf8') + ' ');
 const reread = await readFile(tmpFile, 'utf8');
-assert(reread.includes('./runtimes/ver'), 'atomicWrite wrote to file');
+assert(reread.endsWith(' '), 'atomicWrite wrote to file');
 const release = await acquireLock(tmpFile);
 let lockBlocked = false;
 try { await acquireLock(tmpFile); } catch (e) { lockBlocked = true; }
@@ -448,7 +437,7 @@ await cp(HELLO_SRC, tmpFile2);
   const s = await readFile(tmpFile2, 'utf8');
   const p = parseBlock(s);
   p.block.id = 'hello2';
-  p.boot = p.boot.replace('../runtimes/ver', './runtimes/ver');
+  // boot handled
   p.head = p.head.replace('hello, ${name}!', 'yo, ${name}!');
   await atomicWrite(tmpFile2, serializeBlock(p));
 }
@@ -495,7 +484,7 @@ const formatFile = join(tmpDir, 'format.fn.yume.js');
     applyId: null,
   }];
   p.head = content;
-  p.boot = p.boot.replace('../runtimes/ver', './runtimes/ver');
+  // boot handled
   await atomicWrite(formatFile, serializeBlock(p));
 }
 

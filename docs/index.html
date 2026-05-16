@@ -1412,7 +1412,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         <div class="arch-step">
           <span class="arch-num">02</span>
           <h3 data-i18n="arch.step2.title">BOOT loads the matching runtime</h3>
-          <p data-i18n-html="arch.step2.body"><code>node chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.</p>
+          <p data-i18n-html="arch.step2.body"><code>node runYume.js chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.</p>
         </div>
         <div class="arch-step">
           <span class="arch-num">03</span>
@@ -1615,36 +1615,36 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           <div class="command">
             <p data-i18n="commands.cmd0.label">Read the AI runbook</p>
             <pre><code>npm run runbook
-node runAndReadMe.aiDoc.yume.js validate</code></pre>
+node runYume.js runAndReadMe.aiDoc.yume.js validate</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd1.label">Snapshot the current HEAD as a new version</p>
-            <pre><code>node chapter-07.draft.yume.js commit \
+            <pre><code>node runYume.js chapter-07.draft.yume.js commit \
   --note "tightened opening"</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd2.label">Browse history, show a version, diff two versions</p>
-            <pre><code>node chapter-07.draft.yume.js history
-node chapter-07.draft.yume.js show head
-node chapter-07.draft.yume.js diff 0 -1</code></pre>
+            <pre><code>node runYume.js chapter-07.draft.yume.js history
+node runYume.js chapter-07.draft.yume.js show head
+node runYume.js chapter-07.draft.yume.js diff 0 -1</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd3.label">Roll back to a previous version</p>
-            <pre><code>node chapter-07.draft.yume.js rollback -1 \
+            <pre><code>node runYume.js chapter-07.draft.yume.js rollback -1 \
   --note "restore earlier draft"</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd4.label">Add or correct an intent note on a version</p>
-            <pre><code>node chapter-07.draft.yume.js note-add head \
+            <pre><code>node runYume.js chapter-07.draft.yume.js note-add head \
   "why this version exists"</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd5.label">Expand context for AI editing (heavy)</p>
-            <pre><code>node chapter-07.draft.yume.js heavy chapterSeven 1 .</code></pre>
+            <pre><code>node runYume.js chapter-07.draft.yume.js heavy chapterSeven 1 .</code></pre>
           </div>
           <div class="command">
             <p data-i18n="commands.cmd6.label">Apply the AI-edited view back (heavy-apply)</p>
-            <pre><code>node chapter-07.draft.yume.js heavy-apply view.txt \
+            <pre><code>node runYume.js chapter-07.draft.yume.js heavy-apply view.txt \
   chapterSeven 1 . --note "AI revised opening"</code></pre>
           </div>
         </div>
@@ -1757,7 +1757,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "arch.step1.title": "The Block carries its runtime version",
         "arch.step1.body": "<code>__block.runtime = { name: \"yume\", version: \"001\" }</code> pins the version. Older files keep their old runtime, no matter what newer files do.",
         "arch.step2.title": "BOOT loads the matching runtime",
-        "arch.step2.body": "<code>node chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.",
+        "arch.step2.body": "<code>node runYume.js chapter-07.draft.yume.js commit</code> dynamically imports <code>runtimes/ver001.handle.yume.js</code>. No installer, no global service — just Node and local files.",
         "arch.step3.title": "The runtime self-analyzes and rewrites the file",
         "arch.step3.body": "It opens the same file, parses its Block + HEAD + BOOT regions, mutates them in place (append a version, update HEAD, edit notes), and writes the file back. The file is its own micro-repository.",
         "workflow.eyebrow": "Workflow",
@@ -1924,7 +1924,7 @@ node chapter-07.draft.yume.js diff 0 -1</code></pre>
         "arch.step1.title": "Block が自分のランタイムバージョンを保持",
         "arch.step1.body": "<code>__block.runtime = { name: \"yume\", version: \"001\" }</code> がバージョンを固定。新しいファイルが何をしようと、古いファイルは古いランタイムのまま読める。",
         "arch.step2.title": "BOOT が対応ランタイムを読み込む",
-        "arch.step2.body": "<code>node chapter-07.draft.yume.js commit</code> が <code>runtimes/ver001.handle.yume.js</code> を動的 import。インストーラもグローバルサービスも不要 ── Node とローカルファイルだけ。",
+        "arch.step2.body": "<code>node runYume.js chapter-07.draft.yume.js commit</code> が <code>runtimes/ver001.handle.yume.js</code> を動的 import。インストーラもグローバルサービスも不要 ── Node とローカルファイルだけ。",
         "arch.step3.title": "ランタイムが自己解析して、ファイルを書き戻す",
         "arch.step3.body": "同じファイルを開き、Block + HEAD + BOOT 領域を解析、その場で書き換え (バージョン追記、HEAD 更新、ノート編集)、ファイルへ書き戻します。ファイル自身が自前の micro-repository です。",
         "workflow.eyebrow": "ワークフロー",
