@@ -26,6 +26,10 @@ async function findRuntime(startDir, version) {
     if (parentDir === currentDir) break;
     currentDir = parentDir;
   }
+  // fallback to runYume.js directory
+  const runYumeDir = dirname(new URL(import.meta.url).pathname);
+  const fallbackRuntimes = join(runYumeDir, 'runtimes', `ver${version}.handle.yume.js`);
+  if (await fileExists(fallbackRuntimes)) return fallbackRuntimes;
   return null;
 }
 
