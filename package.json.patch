@@ -1,9 +1,0 @@
-import { readFileSync, writeFileSync } from 'fs';
-
-let content = readFileSync('package.json', 'utf8');
-
-// replace script paths
-content = content.replace(/"spec": "node BLOCKFILE.aiDoc.yume.js show head",/, '"spec": "node runYume.js BLOCKFILE.aiDoc.yume.js show head",');
-content = content.replace(/"runbook": "node runAndReadMe.aiDoc.yume.js show head",/, '"runbook": "node runYume.js runAndReadMe.aiDoc.yume.js show head",');
-
-writeFileSync('package.json', content);
