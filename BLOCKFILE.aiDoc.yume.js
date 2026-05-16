@@ -1009,24 +1009,42 @@ file' (compressed, +1 version) ←── recompress(heavyApply) ←── edited
   },
 };
 
+
 // ============================================================
-// §17 未決事項(draft 段階で残してる)
+// §17 Schema V2 構想 (ハッシュの廃止とAIフレンドリーなデータ永続化)
+// ============================================================
+export const SchemaV2Concept = {
+  premise:
+    "v001 までの .yume.js は Git の思想を引き継ぎ、sha256 ハッシュによる厳密な履歴チェーン (hash, prevHash) を採用していた。" +
+    "しかし、これは『意味を理解できない機械』のための防御策であり、AI-Native な基盤においては AI の推論と記述の足枷となる。",
+  coreDecisions: [
+    "ハッシュの廃止: AI はハッシュを計算できない。厳密なハッシュチェーンを捨てることで、AI がランタイムを介さずに直接 versions 配列へ履歴を追記可能になる。",
+    "連番/TS管理: バージョンの特定は v1, v2 のようなシンプルな連番、またはタイムスタンプで行う。",
+    "SQLの代替としての Yume: AI にとって最強のデータベースは、ガチガチの RDBMS ではなく『文脈がフラットに置かれたプレーンテキスト』である。",
+    "緩やかな永続化: AI は意味を理解できるため、多少のフォーマット揺れや ID のズレは自己補完できる。過剰なバリデーション (validateBlock) を緩和する。"
+  ],
+  futureFormat: `
+    // 構想される Schema V2 の極小形
+    export const __block = {
+      "id": "hello",
+      "versions": [
+        { "v": 1, "ts": 1714000000000, "content": "..." }
+      ],
+      "notes": {
+        "v1": [{ "author": "human", "text": "初期実装" }]
+      }
+    };
+  `
+};
+
+// ============================================================
+// §18 未決事項(draft 段階で残してる)
 // ============================================================
 export const OpenQuestions = [
-  "delta 圧縮 vs full content per version: versions[].content は full string が default だが、巨大化すると file が膨らむ。delta + N 毎に full snapshot の hybrid を後日検討",
-  "refs の自動抽出範囲: v001 は zero-dep 軽量 scan で import/export-from/dynamic import/bare calls / // @ref: を拾う。observes / link 系は scanner fixture と局所規則で拡張する",
-  "binary content(画像 / sound / 等)を Block 化したい場合: base64 inline か、別 sidecar か。現 spec は string のみ、binary は scope 外",
-  "merge 時の hash chain rebase: 2 branch で同 file を別々に commit した後の merge logic は現 spec 外、別 doc で",
-  "schemaVersion 2 で何を入れるか: signature / encryption / multi-author 履歴 等は将来検討",
-  "runtime version の番号体系: 現案は zero-padded sequential('001', '002')。semver(1.0.0)に変更する余地、後日決定",
-  "runtime upgrade 時の schema migration の書き方: yume_v002.js が v001 → v002 migration logic を持つか、別 migration file を持つか",
-  "notes 自体の history(誰がいつ何を edit したか): v001 は最新のみ、v002 で git notes と同じく独立 history を検討",
-  "notes multi-namespace: 現案は kind フィールドで識別、必要なら __block.notes_review / __block.notes_ai_reasoning 等に layer 分割を検討",
-  "notes search の index: notesSearch を毎回 grep で実装するか、folder 内 index file を作るか(現 spec では grep で十分)",
-  "runtime 自身の self-yume 化: handle file が自分も __block / versions を持ち自己 commit するか(完全 recursion)。chicken-and-egg の bootstrap 問題があるため v001 では plain JS module、v00N で再評価",
-  "role taxonomy 拡張: handle / aiDoc / fn / module / doc / constraint / observation 以外の標準 role 追加(test / config / state / 等)を v00N で検討",
-  "runtime.name = 'yume' 固定の必要性: 現状 field として required だが、将来複数互換 runtime が出るまで意味薄。v00N で optional 化検討",
-  "type enum の明示: 現状 'fn' | 'class' | 'module' | 'doc' | ... と例示のみ、role taxonomy と同期させて canonical enum を spec 化するか検討",
+  "delta 圧縮 vs full content per version: versions[].content は full string が default だが、巨大化すると file が膨らむ。",
+  "binary content(画像 / sound / 等)を Block 化したい場合: base64 inline か、別 sidecar か。",
+  "notes multi-namespace: 現案は kind フィールドで識別、必要なら __block.notes_review 等に layer 分割を検討",
+  "type enum の明示: 現状 'fn' | 'class' | 'module' と例示のみ。"
 ];
 
 // === /HEAD ===
