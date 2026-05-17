@@ -12,7 +12,7 @@
 //   - validateBlock(hash chain / schema sanity)
 //   - heavy / heavyApply codec
 //   - commitManual(boundary case、AI 不在の人手編集救済)
-//   - history / show / diff / rollback
+//   - history / show / diff / rollback / trimVersions
 //   - notes API(noteAdd / noteEdit / noteRm / noteList / notesSearch)
 //   - apply API(applyList / applyShow / applyIndex / applySearch)
 //   - impact(reverse refs closure)
@@ -31,7 +31,7 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { hostname } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 
-export const VERSION = '001';
+export const VERSION = '002';
 export const SCHEMA_VERSION = 1;
 
 // ============================================================
@@ -79,45 +79,67 @@ function hasHeaderMarker(source) {
 }
 
 // brace-balanced extraction of the `{...}` of `export const __block = {...};`
+// Uses a full JS scanner state machine for perfect precision (A0/A7).
 function extractBlockExpr(source) {
   const m = source.match(/export\s+const\s+__block\s*=\s*\{/);
   if (!m) return null;
   const startIdx = m.index + m[0].length - 1;  // position of '{'
 
-  let depth = 0;
-  let inString = false;
-  let stringChar = null;
-  let escape = false;
-  let inLineComment = false;
-  let inBlockComment = false;
-
-  for (let i = startIdx; i < source.length; i++) {
+  const stack = [{ mode: 'code', braceDepth: 1 }];
+  for (let i = startIdx + 1; i < source.length; i++) {
     const c = source[i];
     const next = source[i + 1];
+    const ctx = stack.at(-1);
 
-    if (escape) { escape = false; continue; }
-    if (inString) {
-      if (c === '\\') { escape = true; continue; }
-      if (c === stringChar) inString = false;
+    if (ctx.mode === 'lineComment') {
+      if (c === '\n') stack.pop();
       continue;
     }
-    if (inLineComment) {
-      if (c === '\n') inLineComment = false;
+    if (ctx.mode === 'blockComment') {
+      if (c === '*' && next === '/') { i++; stack.pop(); }
       continue;
     }
-    if (inBlockComment) {
-      if (c === '*' && next === '/') { inBlockComment = false; i++; }
+    if (ctx.mode === 'regex') {
+      if (ctx.escape) { ctx.escape = false; }
+      else if (c === '\\') { ctx.escape = true; }
+      else if (c === '[') { ctx.inCharClass = true; }
+      else if (c === ']') { ctx.inCharClass = false; }
+      else if (c === '\n' || c === '\r') { stack.pop(); }
+      else if (c === '/' && !ctx.inCharClass) { stack.pop(); }
+      continue;
+    }
+    if (ctx.mode === 'string') {
+      if (ctx.escape) { ctx.escape = false; }
+      else if (c === '\\') { ctx.escape = true; }
+      else if (c === ctx.quote) { stack.pop(); }
+      continue;
+    }
+    if (ctx.mode === 'templateText') {
+      if (ctx.escape) { ctx.escape = false; }
+      else if (c === '\\') { ctx.escape = true; }
+      else if (c === '`') { stack.pop(); }
+      else if (c === '$' && next === '{') { i++; stack.push({ mode: 'code', braceDepth: 1 }); }
       continue;
     }
 
-    if (c === '/' && next === '/') { inLineComment = true; i++; continue; }
-    if (c === '/' && next === '*') { inBlockComment = true; i++; continue; }
-    if (c === '"' || c === "'" || c === '`') { inString = true; stringChar = c; continue; }
-    if (c === '{') depth++;
-    else if (c === '}') {
-      depth--;
-      if (depth === 0) return source.slice(startIdx, i + 1);
+    // mode: code
+    if (c === '}') {
+      ctx.braceDepth--;
+      if (ctx.braceDepth === 0) {
+        stack.pop();
+        if (stack.length === 0) return source.slice(startIdx, i + 1);
+      }
+      continue;
     }
+    if (c === '{') { ctx.braceDepth++; continue; }
+    if (c === '/' && next === '/') { i++; stack.push({ mode: 'lineComment' }); continue; }
+    if (c === '/' && next === '*') { i++; stack.push({ mode: 'blockComment' }); continue; }
+    if (c === '/' && isRegexLiteralStart(source, i)) {
+      stack.push({ mode: 'regex', escape: false, inCharClass: false });
+      continue;
+    }
+    if (c === '"' || c === "'") { stack.push({ mode: 'string', quote: c, escape: false }); continue; }
+    if (c === '`') { stack.push({ mode: 'templateText', escape: false }); continue; }
   }
   return null;
 }
@@ -405,17 +427,22 @@ function makeSourceView(source) {
     }
 
     if (ctx.mode === 'templateText') {
-      emitTemplateText(moduleChars, callChars, commentChars, c);
       if (ctx.escape) {
+        emitTemplateText(moduleChars, callChars, commentChars, c);
         ctx.escape = false;
       } else if (c === '\\') {
+        emitTemplateText(moduleChars, callChars, commentChars, c);
         ctx.escape = true;
       } else if (c === '`') {
+        emitTemplateText(moduleChars, callChars, commentChars, c);
         stack.pop();
       } else if (c === '$' && next === '{') {
-        i++;
+        emitTemplateText(moduleChars, callChars, commentChars, c);
         emitTemplateText(moduleChars, callChars, commentChars, next);
+        i++;
         stack.push({ mode: 'templateExpr', braceDepth: 1 });
+      } else {
+        emitTemplateText(moduleChars, callChars, commentChars, c);
       }
       continue;
     }
@@ -663,7 +690,7 @@ function pidAlive(pid) {
 }
 
 // ============================================================
-// validateBlock — schema sanity + hash chain 検証
+// validateBlock — schema sanity + hash chain / hashless v2 validation
 // ============================================================
 export function validateBlock(block) {
   globalThis.__yumeCoverHook?.('validateBlock', arguments);
@@ -682,15 +709,24 @@ export function validateBlock(block) {
   }
   if (block.versions.length === 0) errors.push('versions must contain at least one entry');
   if (block.notes !== undefined && !isPlainObject(block.notes)) errors.push('notes must be an object when present');
+  const hashless = isHashlessSchema(block);
   if (block.trimmedAt !== undefined) {
     if (!isPlainObject(block.trimmedAt)) errors.push('trimmedAt must be an object when present');
     else {
       if (typeof block.trimmedAt.count !== 'number') errors.push('trimmedAt.count must be a number');
-      if (typeof block.trimmedAt.lastHash !== 'string' || !/^[0-9a-f]{64}$/.test(block.trimmedAt.lastHash)) errors.push('trimmedAt.lastHash must be sha256 hex');
+      if (hashless) {
+        if (block.trimmedAt.lastHash !== undefined && !isSha256(block.trimmedAt.lastHash)) errors.push('trimmedAt.lastHash must be sha256 hex when present');
+        if (block.trimmedAt.lastVersion !== undefined && (typeof block.trimmedAt.lastVersion !== 'string' || block.trimmedAt.lastVersion.length === 0)) errors.push('trimmedAt.lastVersion must be a non-empty string when present');
+      } else if (!isSha256(block.trimmedAt.lastHash)) {
+        errors.push('trimmedAt.lastHash must be sha256 hex');
+      }
     }
   }
 
   let prevHash = block.trimmedAt?.lastHash ?? null;
+  let expectedV = block.trimmedAt?.lastV;
+  if (expectedV !== undefined && (!Number.isInteger(expectedV) || expectedV < 0)) errors.push('trimmedAt.lastV must be a non-negative integer when present');
+  expectedV = Number.isInteger(expectedV) ? expectedV + 1 : 1;
   for (let i = 0; i < block.versions.length; i++) {
     const v = block.versions[i];
     const prefix = `versions[${i}]`;
@@ -700,8 +736,15 @@ export function validateBlock(block) {
     }
     if (typeof v.content !== 'string') errors.push(`${prefix}.content must be a string`);
     if (typeof v.ts !== 'number') errors.push(`${prefix}.ts must be a number`);
-    if (v.prevHash !== prevHash) errors.push(`${prefix}.prevHash must equal previous hash`);
-    if (typeof v.hash !== 'string' || !/^[0-9a-f]{64}$/.test(v.hash)) errors.push(`${prefix}.hash must be sha256 hex`);
+    if (hashless) {
+      if (!Number.isInteger(v.v) || v.v < 1) errors.push(`${prefix}.v must be a positive integer`);
+      else if (v.v !== expectedV) errors.push(`${prefix}.v must be sequential`);
+      if (v.hash !== undefined && !isSha256(v.hash)) errors.push(`${prefix}.hash must be sha256 hex when present`);
+      if (v.prevHash !== undefined && v.prevHash !== null && !isSha256(v.prevHash)) errors.push(`${prefix}.prevHash must be null or sha256 hex when present`);
+    } else {
+      if (v.prevHash !== prevHash) errors.push(`${prefix}.prevHash must equal previous hash`);
+      if (!isSha256(v.hash)) errors.push(`${prefix}.hash must be sha256 hex`);
+    }
     if (!Array.isArray(v.refs)) errors.push(`${prefix}.refs must be an array`);
     if (!Array.isArray(v.tags)) errors.push(`${prefix}.tags must be an array`);
     if (v.applyId !== null && (typeof v.applyId !== 'string' || v.applyId.length === 0)) errors.push(`${prefix}.applyId must be null or non-empty string`);
@@ -723,18 +766,19 @@ export function validateBlock(block) {
       }
     }
 
-    if (typeof v.content === 'string' && typeof v.ts === 'number' && typeof v.hash === 'string') {
+    if (!hashless && typeof v.content === 'string' && typeof v.ts === 'number' && typeof v.hash === 'string') {
       const expected = hashContent(v.content, v.prevHash, v.ts);
       if (v.hash !== expected) errors.push(`${prefix}.hash mismatch`);
     }
     prevHash = v.hash;
+    expectedV++;
   }
 
   if (isPlainObject(block.notes)) {
-    const versionHashes = new Set(block.versions.map((version) => version.hash));
+    const versionKeys = new Set(block.versions.map((version) => versionKey(version)).filter(Boolean));
     const applyKeys = new Set(block.versions.filter((version) => version.applyId).map((version) => `apply:${version.applyId}`));
     for (const [key, notes] of Object.entries(block.notes)) {
-      if (!versionHashes.has(key) && !applyKeys.has(key)) errors.push(`notes[${key}] must target an existing version hash or applyId`);
+      if (!versionKeys.has(key) && !applyKeys.has(key)) errors.push(`notes[${key}] must target an existing version or applyId`);
       if (!Array.isArray(notes)) {
         errors.push(`notes[${key}] must be an array`);
         continue;
@@ -770,6 +814,14 @@ export function assertValidBlock(block) {
 
 function isPlainObject(value) {
   return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isHashlessSchema(block) {
+  return typeof block?.schemaVersion === 'number' && block.schemaVersion >= 2;
+}
+
+function isSha256(value) {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 }
 
 // ============================================================
@@ -1060,30 +1112,19 @@ export async function heavyApply(fileUrls, rootId, content, depth = 1, opts = {}
       if (section.meta.hash && currentHead.hash !== section.meta.hash) {
         throw new Error(`heavyApply: stale view for ${entry.relativeFile}: expected ${section.meta.hash}, found ${currentHead.hash}`);
       }
+      if (section.meta.version && versionKey(currentHead) !== section.meta.version) {
+        throw new Error(`heavyApply: stale view for ${entry.relativeFile}: expected ${section.meta.version}, found ${versionKey(currentHead)}`);
+      }
 
       prepared.push({ entry, section, parsed });
     }
 
-    const originals = new Map();
-    for (const { entry } of prepared) {
-      originals.set(entry.file, await readFile(entry.file, 'utf8'));
-    }
-
-    const writtenFiles = [];
-    try {
-      for (const { entry, section, parsed } of prepared) {
-        parsed.head = section.content;
-        const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
-        await atomicWrite(entry.file, serializeBlock(parsed));
-        writtenFiles.push(entry.file);
-        updated.push(entry.relativeFile);
-        newHashes[entry.relativeFile] = version.hash;
-      }
-    } catch (e) {
-      for (const file of writtenFiles) {
-        try { await atomicWrite(file, originals.get(file)); } catch {}
-      }
-      throw e;
+    for (const { entry, section, parsed } of prepared) {
+      parsed.head = section.content;
+      const version = appendVersion(parsed.block, section.content, { ...opts, applyId });
+      await atomicWrite(entry.file, serializeBlock(parsed));
+      updated.push(entry.relativeFile);
+      newHashes[entry.relativeFile] = versionKey(version);
     }
   } finally {
     await release();
@@ -1376,6 +1417,7 @@ function serializeHeavyView(entries, rootId, depth) {
       file: entry.relativeFile,
       id: entry.block.id,
       type: entry.block.type,
+      version: versionKey(version),
       hash: version?.hash ?? null,
       refs: version?.refs?.length ?? 0,
       tags: version?.tags ?? [],
@@ -1598,7 +1640,7 @@ function resolveNoteKey(block, target) {
   if (target == null || target === '' || target === 'head' || target === 'latest') {
     const head = block.versions.at(-1);
     if (!head) throw new Error('resolveNoteKey: no versions');
-    return head.hash;
+    return versionKey(head);
   }
   if (typeof target !== 'string') throw new TypeError('note target must be string');
 
@@ -1615,14 +1657,14 @@ function resolveNoteKey(block, target) {
   if (/^-?\d+$/.test(target)) {
     const index = Number(target);
     const resolved = versionByIndex(block, index);
-    if (resolved) return resolved.hash;
+    if (resolved) return versionKey(resolved);
     if (index < 0) throw new Error(`version index not found: ${target}`);
   }
 
-  const matches = block.versions.filter((version) => version.hash === target || version.hash.startsWith(target));
-  if (matches.length === 0) throw new Error(`version hash not found: ${target}`);
-  if (matches.length > 1) throw new Error(`version hash prefix is ambiguous: ${target}`);
-  return matches[0].hash;
+  const matches = block.versions.filter((version) => versionMatchesTarget(version, target));
+  if (matches.length === 0) throw new Error(`version not found: ${target}`);
+  if (matches.length > 1) throw new Error(`version target is ambiguous: ${target}`);
+  return versionKey(matches[0]);
 }
 
 function ensureApplyExists(block, applyId) {
@@ -1653,7 +1695,7 @@ function makeApplyId() {
 }
 
 function noteCountForVersion(block, version) {
-  const versionNotes = block.notes?.[version.hash]?.length ?? 0;
+  const versionNotes = block.notes?.[versionKey(version)]?.length ?? 0;
   const applyNotes = version.applyId ? (block.notes?.[`apply:${version.applyId}`]?.length ?? 0) : 0;
   return versionNotes + applyNotes;
 }
@@ -1661,20 +1703,23 @@ function noteCountForVersion(block, version) {
 function appendVersion(block, content, opts = {}) {
   const lastVersion = block.versions.at(-1);
   const ts = Date.now();
-  const prevHash = lastVersion?.hash ?? null;
-  const hash = hashContent(content, prevHash, ts);
   const applyId = opts.applyId ?? (opts.note ? makeApplyId() : null);
   assertWritableApplyId(applyId);
   const extracted = extractRefsAndTags(content);
   const version = {
-    hash,
-    prevHash,
     content,
     ts,
     refs: extracted.refs,
     tags: extracted.tags,
     applyId,
   };
+  if (isHashlessSchema(block)) {
+    version.v = nextVersionNumber(block);
+  } else {
+    const prevHash = lastVersion?.hash ?? null;
+    version.hash = hashContent(content, prevHash, ts);
+    version.prevHash = prevHash;
+  }
   block.versions.push(version);
   if (opts.note) {
     ensureNotes(block);
@@ -1682,6 +1727,11 @@ function appendVersion(block, content, opts = {}) {
     block.notes[`apply:${applyId}`].push(makeNote(opts.note));
   }
   return version;
+}
+
+function nextVersionNumber(block) {
+  const max = block.versions.reduce((n, version) => Number.isInteger(version.v) ? Math.max(n, version.v) : n, 0);
+  return max + 1;
 }
 
 function resolveVersion(block, target = 'head', opts = {}) {
@@ -1703,9 +1753,9 @@ function resolveVersion(block, target = 'head', opts = {}) {
     if (index < 0) throw new Error(`version index not found: ${target}`);
   }
 
-  const matches = block.versions.filter((version) => version.hash === target || version.hash.startsWith(target));
+  const matches = block.versions.filter((version) => versionMatchesTarget(version, target));
   if (matches.length === 0) throw new Error(`version not found: ${target}`);
-  if (matches.length > 1) throw new Error(`version hash prefix is ambiguous: ${target}`);
+  if (matches.length > 1) throw new Error(`version target is ambiguous: ${target}`);
   return matches[0];
 }
 
@@ -1722,7 +1772,28 @@ function versionByIndex(block, index, opts = {}) {
 }
 
 function versionLabel(version, fallback) {
-  return version ? `${version.hash.slice(0, 7)}` : fallback;
+  return version ? versionDisplay(version) : fallback;
+}
+
+function versionKey(version) {
+  if (!version) return null;
+  if (Number.isInteger(version.v)) return `v${version.v}`;
+  if (typeof version.hash === 'string') return version.hash;
+  return null;
+}
+
+function versionDisplay(version) {
+  if (!version) return '-';
+  if (Number.isInteger(version.v)) return `v${version.v}`;
+  if (typeof version.hash === 'string') return version.hash.slice(0, 7);
+  return '?';
+}
+
+function versionMatchesTarget(version, target) {
+  const key = versionKey(version);
+  if (key === target) return true;
+  if (typeof version.hash === 'string' && version.hash.startsWith(target)) return true;
+  return false;
 }
 
 function lineDiff(oldText, newText, oldLabel = 'old', newLabel = 'new') {
@@ -1783,7 +1854,7 @@ export async function commitManual(fileUrl, opts = {}) {
 
     const newVersion = appendVersion(parsed.block, headInSource, opts);
     await atomicWrite(filePath, serializeBlock(parsed));
-    return { committed: true, newHash: newVersion.hash, applyId: newVersion.applyId };
+    return { committed: true, newHash: versionKey(newVersion), applyId: newVersion.applyId };
   } finally {
     await release();
   }
@@ -1833,7 +1904,7 @@ export async function rollback(fileUrl, target, opts = {}) {
     }
 
     const targetVersion = resolveVersion(parsed.block, target, { negativeFromPrevious: true });
-    if (targetVersion.hash === lastVersion.hash) {
+    if (versionKey(targetVersion) === versionKey(lastVersion)) {
       throw new Error('rollback: target is already the latest version');
     }
 
@@ -1841,8 +1912,8 @@ export async function rollback(fileUrl, target, opts = {}) {
     const newVersion = appendVersion(parsed.block, targetVersion.content, opts);
     await atomicWrite(filePath, serializeBlock(parsed));
     return {
-      newHash: newVersion.hash,
-      targetHash: targetVersion.hash,
+      newHash: versionKey(newVersion),
+      targetHash: versionKey(targetVersion),
       applyId: newVersion.applyId,
     };
   } finally {
@@ -1884,13 +1955,16 @@ export async function trimVersions(fileUrl, opts = {}) {
     await atomicWrite(archivePath, archiveSrc);
 
     block.versions = toKeep;
-    block.trimmedAt = { count: newArchive.versions.length, lastHash: toArchive.at(-1).hash };
+    const lastArchived = toArchive.at(-1);
+    block.trimmedAt = isHashlessSchema(block)
+      ? { count: newArchive.versions.length, lastV: lastArchived.v, lastVersion: versionKey(lastArchived) }
+      : { count: newArchive.versions.length, lastHash: lastArchived.hash };
 
     if (isPlainObject(block.notes)) {
-      const keptHashes = new Set(toKeep.map((v) => v.hash));
+      const keptVersions = new Set(toKeep.map((v) => versionKey(v)));
       const keptApplyKeys = new Set(toKeep.filter((v) => v.applyId).map((v) => `apply:${v.applyId}`));
       for (const key of Object.keys(block.notes)) {
-        if (!keptHashes.has(key) && !keptApplyKeys.has(key)) delete block.notes[key];
+        if (!keptVersions.has(key) && !keptApplyKeys.has(key)) delete block.notes[key];
       }
     }
 
@@ -1908,6 +1982,17 @@ export async function cli(fileUrl, block, argv) {
   globalThis.__yumeCoverHook?.('cli', arguments);
   const verb = argv[2];
   switch (verb) {
+    case 'version': {
+      console.log(`yume runtime v${VERSION}`);
+      return;
+    }
+    case 'help': {
+      console.log(`yume runtime v${VERSION} — available verbs:`);
+      console.log('  commit, history, heavy, heavy-apply, show, diff, rollback, trim, version, help');
+      console.log('  note-add, note-edit, note-rm, note-list, notes-search');
+      console.log('  refs, tags, impact, refs-check, apply-list, apply-show, apply-index, apply-search');
+      return;
+    }
     case 'commit': {
       const noteText = flagValue(argv, '--note');
       const r = await commitManual(fileUrl, {
@@ -1925,13 +2010,13 @@ export async function cli(fileUrl, block, argv) {
       const parsed = await readParsedFile(toPath(fileUrl));
       if (parsed.block.trimmedAt) {
         const archivePath = toPath(fileUrl).replace(/\.yume\.js$/, '.archive.yume.js');
-        console.log(`(+ ${parsed.block.trimmedAt.count} archived → ${archivePath})`);
+        console.log(`(+ ${parsed.block.trimmedAt.count} archived -> ${archivePath})`);
       }
       for (const v of parsed.block.versions) {
         const ts = new Date(v.ts).toISOString();
         const aid = v.applyId ?? '-';
         const notes = noteCountForVersion(parsed.block, v);
-        console.log(`${v.hash.slice(0, 7)}  ${ts}  refs=${v.refs.length}  apply=${aid}  notes=${notes}`);
+        console.log(`${versionDisplay(v)}  ${ts}  refs=${v.refs.length}  apply=${aid}  notes=${notes}`);
       }
       return;
     }
@@ -1967,8 +2052,16 @@ export async function cli(fileUrl, block, argv) {
     }
     case 'show': {
       const v = await show(fileUrl, argv[3] ?? 'head');
-      console.log(`hash: ${v.hash}`);
-      console.log(`prevHash: ${v.prevHash ?? '-'}`);
+      if (hasFlag(argv, '--raw')) {
+        process.stdout.write(v.content.endsWith('\n') ? v.content : `${v.content}\n`);
+        return;
+      }
+      if (v.hash) {
+        console.log(`hash: ${v.hash}`);
+        console.log(`prevHash: ${v.prevHash ?? '-'}`);
+      } else {
+        console.log(`version: ${versionDisplay(v)}`);
+      }
       console.log(`ts: ${new Date(v.ts).toISOString()}`);
       console.log(`refs: ${v.refs.length}`);
       console.log(`tags: ${v.tags.join(',') || '-'}`);
@@ -2101,7 +2194,7 @@ export async function cli(fileUrl, block, argv) {
       const group = await applyShow(fileUrl, applyId);
       console.log(`${group.applyId}  versions=${group.versions.length}  notes=${group.notes.length}`);
       for (const v of group.versions) {
-        console.log(`  version ${v.hash.slice(0, 7)}  ${new Date(v.ts).toISOString()}`);
+        console.log(`  version ${versionDisplay(v)}  ${new Date(v.ts).toISOString()}`);
       }
       for (const note of group.notes) {
         const kind = note.kind ?? '-';
@@ -2126,7 +2219,7 @@ export async function cli(fileUrl, block, argv) {
       for (const file of group.files) {
         console.log(`  file ${file.relativeFile}  block=${file.blockId}  versions=${file.versions.length}  notes=${file.notes.length}`);
         for (const v of file.versions) {
-          console.log(`    version ${v.hash.slice(0, 7)}  ${new Date(v.ts).toISOString()}`);
+          console.log(`    version ${versionDisplay(v)}  ${new Date(v.ts).toISOString()}`);
         }
         for (const note of file.notes) {
           const kind = note.kind ?? '-';
@@ -2147,7 +2240,7 @@ export async function cli(fileUrl, block, argv) {
       return;
     }
     default:
-      console.error(`yume: unknown verb '${verb}'. v001 supports: commit, history, heavy, heavy-apply, show, diff, rollback, validate, refs, tags, impact, refs-check, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
+      console.error(`yume: unknown verb '${verb}'. v002 supports: commit, history, heavy, heavy-apply, show, diff, rollback, trim, validate, refs, tags, impact, refs-check, note-add, note-edit, note-rm, note-list, notes-search, apply-list, apply-show, apply-index, apply-search`);
       process.exit(1);
   }
 }

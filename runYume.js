@@ -33,6 +33,71 @@ async function findRuntime(startDir, version) {
   return null;
 }
 
+function extractBlockExpr(source) {
+  const match = source.match(/export\s+const\s+__block\s*=\s*\{/);
+  if (!match) return null;
+
+  const startIndex = match.index + match[0].length - 1;
+  let depth = 0;
+  let inString = false;
+  let stringChar = null;
+  let escape = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = startIndex; i < source.length; i++) {
+    const c = source[i];
+    const next = source[i + 1];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === stringChar) inString = false;
+      continue;
+    }
+    if (inLineComment) {
+      if (c === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (c === '*' && next === '/') {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (c === '/' && next === '/') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      inString = true;
+      stringChar = c;
+      continue;
+    }
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) return source.slice(startIndex, i + 1);
+    }
+  }
+
+  return null;
+}
+
 async function main() {
   const [, , targetPath, verb, ...args] = process.argv;
 
@@ -50,15 +115,15 @@ async function main() {
     process.exit(1);
   }
 
-  const blockMatch = source.match(/export\s+const\s+__block\s*=\s*(\{[\s\S]+?\});/);
-  if (!blockMatch) {
+  const blockExpr = extractBlockExpr(source);
+  if (!blockExpr) {
     console.error(`Error: __block not found in ${targetPath}`);
     process.exit(1);
   }
 
   let block;
   try {
-    block = JSON.parse(blockMatch[1]);
+    block = JSON.parse(blockExpr);
   } catch (e) {
     console.error(`Error parsing __block in ${targetPath}:`, e.message);
     process.exit(1);

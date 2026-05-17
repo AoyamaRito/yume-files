@@ -29,6 +29,7 @@ import {
   noteAdd, noteEdit, noteRm, noteList, notesSearch, applyList, applyShow, applyIndex, applySearch,
   cli,
 } from './runtimes/ver001.handle.yume.js';
+import * as rt2 from './runtimes/ver002.handle.yume.js';
 
 // Phase 2.1 coverage hook: only active under cover.js --e2e (env-gated, zero
 // effect for plain `npm test`). Records which runtime fns get called and
@@ -107,7 +108,7 @@ assert(runbookParsed.block.type === 'aiDoc', 'runbook block type is aiDoc');
 assert(validateBlock(runbookParsed.block).ok, 'runbook validates hash chain');
 assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'BLOCKFILE'), 'runbook refs canonical spec');
 assert(runbookParsed.block.versions.at(-1).refs.some((ref) => ref.target === 'hello'), 'runbook refs minimal example');
-assert(packageJson.scripts.runbook === 'node runAndReadMe.aiDoc.yume.js show head', 'package exposes runbook script');
+assert(packageJson.scripts.runbook === 'node runYume.js runAndReadMe.aiDoc.yume.js show head', 'package exposes runbook script');
 // ============================================================
 // 1. parseBlock
 // ============================================================
@@ -682,6 +683,68 @@ console.log = (...args) => historyLines.push(args.join(' '));
 await cli(trimFile, trimmedParsed.block, [null, null, 'history']);
 console.log = origLog;
 assert(historyLines[0].includes('archived'), 'history shows archived count when trimmedAt present');
+
+// ============================================================
+// 12. schema v2 hashless runtime
+// ============================================================
+console.log('\n[12] schema v2 hashless runtime');
+const v2File = join(tmpDir, 'hashless.fn.yume.js');
+const v2Head = 'export function hashless(){return 1;}';
+const v2Ts = 1714000020000;
+const v2Block = {
+  id: 'hashless',
+  type: 'fn',
+  schemaVersion: 2,
+  runtime: { name: 'yume', version: '002' },
+  versions: [{
+    v: 1,
+    content: v2Head,
+    ts: v2Ts,
+    refs: [],
+    tags: [],
+    applyId: null,
+  }],
+  notes: {
+    v1: [{ id: 'n-seed', author: 'human', ts: v2Ts, text: 'seed' }],
+  },
+};
+await writeFile(v2File, rt2.serializeBlock({ block: v2Block, head: v2Head, boot: '' }));
+
+const v2Parsed = rt2.parseBlock(await readFile(v2File, 'utf8'));
+assert(rt2.validateBlock(v2Parsed.block).ok, 'v002 validates schemaVersion 2 without hashes');
+assert((await rt2.show(v2File, 'v1')).content === v2Head, 'v002 show resolves v-number target');
+assert((await rt2.noteList(v2File, 'head'))[0].key === 'v1', 'v002 notes resolve head to v-number key');
+
+const v2View = await rt2.heavy([v2File], 'hashless', 0);
+const v2Apply = await rt2.heavyApply([v2File], 'hashless', v2View.replace('return 1;', 'return 2;'), 0);
+assert(v2Apply.updated.length === 1, 'v002 heavyApply updates hashless file');
+assert(Object.values(v2Apply.newHashes)[0] === 'v2', 'v002 heavyApply reports v-number version key');
+const v2History = await rt2.history(v2File);
+assert(v2History.length === 2, 'v002 hashless history appends a version');
+assert(v2History[1].v === 2 && v2History[1].hash === undefined, 'v002 appended version remains hashless');
+assert((await rt2.diff(v2File, 'v1', 'v2')).includes('return 2'), 'v002 diff resolves v-number range');
+
+const mixedV1File = join(tmpDir, 'mixed-v1.fn.yume.js');
+const mixedV1Head = 'export function mixedV1(){return 1;}';
+const mixedV1Ts = 1714000021000;
+const mixedV1Block = {
+  id: 'mixedV1',
+  type: 'fn',
+  schemaVersion: 1,
+  runtime: { name: 'yume', version: '001' },
+  versions: [{
+    hash: rt2.hashContent(mixedV1Head, null, mixedV1Ts),
+    prevHash: null,
+    content: mixedV1Head,
+    ts: mixedV1Ts,
+    refs: [],
+    tags: [],
+    applyId: null,
+  }],
+};
+await writeFile(mixedV1File, rt2.serializeBlock({ block: mixedV1Block, head: mixedV1Head, boot: '' }));
+const v2RefsReport = await rt2.refsCheck([v2File, mixedV1File]);
+assert(v2RefsReport.ok, 'v002 refsCheck accepts mixed schema v1/v2 files');
 
 // ============================================================
 // cleanup
